@@ -33,7 +33,7 @@
 typedef struct
 {
     // Pointer to program name
-    char * progname;
+    char * name;
 
     // Number of times a signal has been handled
     int sigcount;
@@ -44,12 +44,12 @@ typedef struct
     // Interactive CLI shell
     scallop_t * scallop;
 }
-raytl_data_t;
+app_data_t;
 
 //------------------------------------------------------------------------|
 // The module data container instance
-static raytl_data_t raytl_data;
-static raytl_data_t * raytl = &raytl_data;
+static app_data_t app_data;
+static app_data_t * app = &app_data;
 
 //------------------------------------------------------------------------|
 int main(int argc, char *argv[])
@@ -80,31 +80,31 @@ void init(char * path)
     // runtime options need to be set on existing objects
     // e.g builtin registry of base components
 
-    raytl->progname = basename(path);
+    app->name = basename(path);
 
     // TODO: consider making inputf/outputf parameters.
     // Could redirect I/O over a tty for example.
     bytes_t * history_file = bytes_pub.print_create(".%s-history",
-                                                    raytl->progname);
-    raytl->console = console_pub.create(stdin, stdout,
-                                        history_file->cstr(history_file));
+                                                    app->name);
+    app->console = console_pub.create(stdin, stdout,
+                                      history_file->cstr(history_file));
     history_file->destroy(history_file);
 
     // Create the interactive command interpreter scallop.
     // Inject the console as it will be needed for interaction.
-    raytl->scallop = scallop_pub.create(raytl->console,
-                                        register_builtin_commands,
-                                        raytl->progname);
+    app->scallop = scallop_pub.create(app->console,
+                                      register_builtin_commands,
+                                      app->name);
 
 }
 
 //------------------------------------------------------------------------|
 void sighandler(int signum)
 {
-    raytl->sigcount++;
+    app->sigcount++;
 
-    BLAMMO(INFO, "signum: %d  sigcount: %d", signum, raytl->sigcount);
-    if (raytl->sigcount >= SCALLOP_MAX_SIGCOUNT )
+    BLAMMO(INFO, "signum: %d  sigcount: %d", signum, app->sigcount);
+    if (app->sigcount >= APP_MAX_SIGCOUNT )
     {
         BLAMMO(INFO, "quitting...");
         quit(signum);
@@ -117,16 +117,16 @@ void quit(int status)
     BLAMMO(INFO, "status: %d", status);
 
     // destroy all objects here
-    if (raytl->scallop)
+    if (app->scallop)
     {
         // Stop the interactive shell
-        raytl->scallop->quit(raytl->scallop);
-        raytl->scallop->destroy(raytl->scallop);
+        app->scallop->quit(app->scallop);
+        app->scallop->destroy(app->scallop);
     }
 
-    if (raytl->console)
+    if (app->console)
     {
-        raytl->console->destroy(raytl->console);
+        app->console->destroy(app->console);
     }
 
     exit(status);
@@ -137,7 +137,7 @@ int parse(int argc, char *argv[])
 {
     BLAMMO(INFO, "");
 
-    char line[SCALLOP_BUFFER_SIZE] = { 0 };
+    char line[APP_BUFFER_SIZE] = { 0 };
     const char * opts = "Vv:l:s:n:h";
     int option;
     extern char * optarg;
@@ -149,8 +149,8 @@ int parse(int argc, char *argv[])
         {
             case 'V':
                 // report version and quit
-                raytl->console->print(raytl->console,
-                        "%s version %s", raytl->progname, SCALLOP_VERSION);
+                app->console->print(app->console,
+                        "%s version %s", app->name, APP_VERSION);
                 quit(0);
                 break;
 
@@ -167,8 +167,8 @@ int parse(int argc, char *argv[])
 
             case 's':
                 // load and run a script on startup
-                snprintf(line, SCALLOP_BUFFER_SIZE, "source %s", optarg);
-                raytl->scallop->dispatch(raytl->scallop, line);
+                snprintf(line, APP_BUFFER_SIZE, "source %s", optarg);
+                app->scallop->dispatch(app->scallop, line);
                 break;
 
             case 'n':
@@ -177,7 +177,7 @@ int parse(int argc, char *argv[])
 
             case 'h':
             default:
-                usage(raytl->progname, opts);
+                usage(app->name, opts);
                 quit(-1);
                 break;
         }
@@ -187,9 +187,9 @@ int parse(int argc, char *argv[])
 }
 
 //------------------------------------------------------------------------|
-void usage(const char * progname, const char * opts)
+void usage(const char * name, const char * opts)
 {
-    raytl->console->print(raytl->console,
+    app->console->print(app->console,
         "usage: %s [%s]\r\n\r\n"
         "-V            Report version and quit\r\n"
         "\r\n"
@@ -201,12 +201,12 @@ void usage(const char * progname, const char * opts)
         "-s <path>     Source a script file immediately on startup\r\n"
         "\r\n"
         "-h            Show this help text and quit\r\n"
-        "\r\n" , progname, opts);
+        "\r\n" , name, opts);
 }
 
 //------------------------------------------------------------------------|
 int prompt()
 {
     // enter interactive prompt
-    return raytl->scallop->loop(raytl->scallop, true);
+    return app->scallop->loop(app->scallop, true);
 }

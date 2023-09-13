@@ -40,9 +40,9 @@
 #include <errno.h>
 
 //------------------------------------------------------------------------|
-#define SCALLOP_VERSION           "0.0.1"
-#define SCALLOP_MAX_SIGCOUNT      5
-#define SCALLOP_BUFFER_SIZE       1024
+#define APP_VERSION           "0.0.1"
+#define APP_MAX_SIGCOUNT      5
+#define APP_BUFFER_SIZE       1024
 
 //------------------------------------------------------------------------|
 int main(int argc, char *argv[]);
