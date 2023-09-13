@@ -28,11 +28,14 @@
 #include <stddef.h>
 #include <errno.h>
 
+// Scallop
 #include "scallop.h"
-#include "scommand.h"
-#include "sroutine.h"
-#include "sparser.h"
-#include "sbuiltin.h"
+#include "command.h"
+#include "routine.h"
+#include "parser.h"
+#include "builtin.h"
+
+// RayCO
 #include "console.h"
 #include "chain.h"
 #include "bytes.h"

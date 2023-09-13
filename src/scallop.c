@@ -28,16 +28,19 @@
 #include <stddef.h>
 #include <errno.h>
 
-#include "scallop.h"
+// RayCO
 #include "utils.h"              // memzero(), function signatures
 #include "blammo.h"
-#include "scommand.h"
-#include "sbuiltin.h"
-#include "sroutine.h"
 #include "console.h"
 #include "collect.h"
 #include "chain.h"
 #include "bytes.h"
+
+// Scallop
+#include "scallop.h"
+#include "command.h"
+#include "builtin.h"
+#include "routine.h"
 
 //------------------------------------------------------------------------|
 // Various constants that define the syntax/dialect/behavior of scallop's

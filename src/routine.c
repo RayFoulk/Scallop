@@ -27,14 +27,17 @@
 #include <string.h>
 #include <stddef.h>
 
-#include "sroutine.h"
+// RayCO
 #include "utils.h"              // memzero()
 #include "blammo.h"
-#include "scommand.h"
-#include "scallop.h"
 #include "console.h"
 #include "chain.h"
 #include "bytes.h"
+
+// Scallop
+#include "scallop.h"
+#include "command.h"
+#include "routine.h"
 
 //------------------------------------------------------------------------|
 typedef struct

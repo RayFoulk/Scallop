@@ -29,8 +29,8 @@
 #include <stdbool.h>
 
 #include "console.h"
-#include "scommand.h"
-#include "sroutine.h"
+#include "command.h"
+#include "routine.h"
 
 //------------------------------------------------------------------------|
 // Arbitrary maximum recursion depth to avoid stack smashing

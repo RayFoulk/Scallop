@@ -104,7 +104,7 @@ void sighandler(int signum)
     raytl->sigcount++;
 
     BLAMMO(INFO, "signum: %d  sigcount: %d", signum, raytl->sigcount);
-    if (raytl->sigcount >= RAYTL_MAX_SIGCOUNT )
+    if (raytl->sigcount >= SCALLOP_MAX_SIGCOUNT )
     {
         BLAMMO(INFO, "quitting...");
         quit(signum);
@@ -137,7 +137,7 @@ int parse(int argc, char *argv[])
 {
     BLAMMO(INFO, "");
 
-    char line[RAYTL_BUFFER_SIZE] = { 0 };
+    char line[SCALLOP_BUFFER_SIZE] = { 0 };
     const char * opts = "Vv:l:s:n:h";
     int option;
     extern char * optarg;
@@ -150,7 +150,7 @@ int parse(int argc, char *argv[])
             case 'V':
                 // report version and quit
                 raytl->console->print(raytl->console,
-                        "%s version %s", raytl->progname, RAYTL_VERSION);
+                        "%s version %s", raytl->progname, SCALLOP_VERSION);
                 quit(0);
                 break;
 
@@ -167,7 +167,7 @@ int parse(int argc, char *argv[])
 
             case 's':
                 // load and run a script on startup
-                snprintf(line, RAYTL_BUFFER_SIZE, "source %s", optarg);
+                snprintf(line, SCALLOP_BUFFER_SIZE, "source %s", optarg);
                 raytl->scallop->dispatch(raytl->scallop, line);
                 break;
 

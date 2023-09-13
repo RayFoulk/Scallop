@@ -26,7 +26,7 @@
 #include <string.h>
 #include <stddef.h>
 
-#include "scommand.h"
+#include "command.h"
 #include "utils.h"              // memzero()
 #include "blammo.h"
 #include "chain.h"
