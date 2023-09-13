@@ -1,0 +1,3 @@
+[submodule "ext/RayCO"]
+	path = ext/RayCO
+	url = git@github.com:RayFoulk/RayCO.git
