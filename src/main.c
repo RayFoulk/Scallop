@@ -138,7 +138,7 @@ int parse(int argc, char *argv[])
     BLAMMO(INFO, "");
 
     char line[APP_BUFFER_SIZE] = { 0 };
-    const char * opts = "Vv:l:s:n:h";
+    const char * opts = "Vv:l:s:h";
     int option;
     extern char * optarg;
 
@@ -169,10 +169,6 @@ int parse(int argc, char *argv[])
                 // load and run a script on startup
                 snprintf(line, APP_BUFFER_SIZE, "source %s", optarg);
                 app->scallop->dispatch(app->scallop, line);
-                break;
-
-            case 'n':
-                // notify events on a UNIX socket, or TCP
                 break;
 
             case 'h':
