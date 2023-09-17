@@ -21,75 +21,50 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //------------------------------------------------------------------------|
 
-#include "blammo.h"
-#include "utils.h"
-#include "console.h"
-#include "mut.h"
-
 #include <string.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <unistd.h>
+
+#include "blammo.h"
+#include "utils.h"
+#include "mut.h"
+
+#include "command.h"
+
+static int bogus_scallcmd_handler(void * scallop,
+                                     void * context,
+                                     int argc,
+                                     char ** argv)
+{
+    BLAMMO(INFO, "called");
+    return 0;
+}
 
 TESTSUITE_BEGIN
 
     // Simple test of the blammo logger
     BLAMMO_LEVEL(INFO);
-    BLAMMO_FILE("test_console.log");
-    BLAMMO(INFO, "console tests...");
+    BLAMMO_FILE("test_scallcmd.log");
+    BLAMMO(INFO, "scallcmd tests...");
 
-TEST_BEGIN("test console")
-    console_t * console = console_pub.create(stdin, stdout, "test-history.txt");
+TEST_BEGIN("test create/destroy")
+    scallop_cmd_t * scallcmd = scallop_cmd_pub.create(bogus_scallcmd_handler,
+                                                      NULL,
+                                                      "test",
+                                                      " <hint>",
+                                                      "a bogus test command");
+    CHECK(scallcmd != NULL);
 
-    CHECK(console != NULL);
+    scallcmd->destroy(scallcmd);
 
-    console->destroy(console);
 TEST_END
 
-TEST_BEGIN("test lock/unlock")
+TEST_BEGIN("test register/unregister")
+    CHECK(true);
 TEST_END
 
-TEST_BEGIN("test set callbacks")
-TEST_END
-
-TEST_BEGIN("test tab completion")
-TEST_END
-
-TEST_BEGIN("test get line")
-TEST_END
-
-TEST_BEGIN("test warning")
-    console_t * console = console_pub.create(stdin, stdout, NULL);
-    console->warning(console, "something could be wrong! %d", 777);
-    console->destroy(console);
-TEST_END
-
-TEST_BEGIN("test error")
-    console_t * console = console_pub.create(stdin, stdout, NULL);
-    console->error(console, "something is definitely wrong! %d", 5555);
-    console->destroy(console);
-TEST_END
-
-TEST_BEGIN("test print")
-    console_t * console = console_pub.create(stdin, stdout, NULL);
-    console->print(console, "howdy doody %d", 99);
-    console->destroy(console);
-TEST_END
-
-TEST_BEGIN("test reprint")
-    // This is an Inspection test
-    console_t * console = console_pub.create(stdin, stdout, NULL);
-    int i = 0;
-
-    console->reprint(console, NULL);
-    for(i = 0; i < 9999; i++)
-    {
-        console->reprint(console, "i: %d", i);
-        usleep(100);
-    }
-
-    console->destroy(console);
-
+TEST_BEGIN("test deep destroy")
+    CHECK(true);
 TEST_END
 
 TESTSUITE_END

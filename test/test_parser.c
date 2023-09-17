@@ -21,15 +21,16 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //------------------------------------------------------------------------|
 
-#include "blammo.h"
-#include "utils.h"
-#include "sparser.h"
-#include "prng.h"
-#include "mut.h"
-
 #include <string.h>
 #include <limits.h>
 #include <stdbool.h>
+
+#include "blammo.h"
+#include "utils.h"
+#include "prng.h"
+#include "mut.h"
+
+#include "parser.h"
 
 // Simple evaluator using default error print function
 static long evalexpr(const char * expression)
