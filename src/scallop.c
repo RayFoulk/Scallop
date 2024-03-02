@@ -242,10 +242,9 @@ static void scallop_tab_completion(void * object, const char * buffer)
     // tab-completed argument in place and then feed the whole thing
     // back to console.  Just re-use the existing declared variables.
     // Basically strdup() manually, but allow some extra room for tab completed
-    // keyword.  Maybe can use strndup() with a big n instead???
+    // keyword.  Maybe could use strndup() with a big n instead??? -- nah
     linebytes = bytes_pub.create(buffer, strlen(buffer));
     linebytes->resize(linebytes, linebytes->size(linebytes) + longest);
-
 
     // get markers within unmodified copy of line
     args = linebytes->tokenizer(linebytes,
@@ -718,7 +717,7 @@ static bool scallop_variable_substitution(scallop_t * scallop,
     bytes_t * varvalue = NULL;
 
     // work through the entire raw line, replacing variable references
-    // "[variable_name]" with the string value of each variable.
+    // "{variable_name}" with the string value of each variable.
     while (offset_begin >= 0)
     {
         offset_begin = linebytes->find_forward(linebytes,
@@ -842,18 +841,24 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         return;
     }
 
+    // Make an initial copy of the line mainly because we need
+    // to lookup the command that is being specified.  NOTE:
+    // variables as commands are not supported!
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
 
-    // Preprocessor-like variable substitution needs to happen
-    // before calling tokenize, to allow for supporting spaces
-    // in variables, multiple variables inside arguments, and
-    // complex expression evaluation.
-    if (!scallop_variable_substitution(scallop, linebytes))
-    {
-        priv->depth--;
-        scallop_set_result(scallop, -2);
-        return;
-    }
+//    // Preprocessor-like variable substitution needs to happen
+//    // before calling tokenize, to allow for supporting spaces
+//    // in variables, multiple variables inside arguments, and
+//    // complex expression evaluation.
+//    // FIXME: This evaluates too early.  When a line should
+//    //  be stashed using the linefunc, instead it gets changed
+//    //  to early -- e.g. at routine definition time.
+//    if (!scallop_variable_substitution(scallop, linebytes))
+//    {
+//        priv->depth--;
+//        scallop_set_result(scallop, -2);
+//        return;
+//    }
 
     size_t argc = 0;
     char ** args = linebytes->tokenizer(linebytes,
@@ -906,6 +911,32 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     }
     else
     {
+        // Need to make another copy of the line now in execution
+        // so that variable substitution can occur.
+        linebytes->assign(linebytes, line, strlen(line));
+
+        // Preprocessor-like variable substitution needs to happen
+        // before calling tokenize, to allow for supporting spaces
+        // in variables, multiple variables inside arguments, and
+        // complex expression evaluation.
+        if (!scallop_variable_substitution(scallop, linebytes))
+        {
+            linebytes->destroy(linebytes);
+            priv->depth--;
+            scallop_set_result(scallop, -2);
+            return;
+        }
+
+        // Re-tokenize now that substitution has occurred.
+        // Assume this copy is going to be OK, since it's been mostly checked already
+        argc = 0;
+        args = linebytes->tokenizer(linebytes,
+                                    true,
+                                    scallop_encaps_pairs,
+                                    scallop_cmd_delim,
+                                    scallop_cmd_comment,
+                                    &argc);
+
         result = command->exec(command, argc, args);
     }
 
