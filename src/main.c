@@ -95,7 +95,6 @@ void init(char * path)
     app->scallop = scallop_pub.create(app->console,
                                       register_builtin_commands,
                                       app->name);
-
 }
 
 //------------------------------------------------------------------------|
@@ -143,7 +142,7 @@ int parse(int argc, char *argv[])
     extern char * optarg;
 
     // Process command line
-    while ((option = getopt (argc, argv, opts)) > 0)
+    while ((option = getopt(argc, argv, opts)) > 0)
     {
         switch (option)
         {
@@ -178,6 +177,11 @@ int parse(int argc, char *argv[])
                 break;
         }
     }
+
+    // FIXME: ADJUST THIS TO MAKE IT WORK WITH EXTRA UNPARSED ARGS
+    // Store excess arguments in scallop's variable
+    // collection so dispatch can perform substitution.
+//    app->scallop->store_args(app->scallop, argc, argv);
 
 	return 0;
 }

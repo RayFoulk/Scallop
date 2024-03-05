@@ -76,6 +76,7 @@ static const char * scallop_var_result = "?";       // "{%?}"
 static const char * scallop_encaps_pairs[] = {
     "\"\"",     // "quoted strings"
     "()",       // (parenthetical expressions)
+    "{}",       // {variable reference}
     NULL
 };
 
@@ -845,21 +846,6 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     // to lookup the command that is being specified.  NOTE:
     // variables as commands are not supported!
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
-
-//    // Preprocessor-like variable substitution needs to happen
-//    // before calling tokenize, to allow for supporting spaces
-//    // in variables, multiple variables inside arguments, and
-//    // complex expression evaluation.
-//    // FIXME: This evaluates too early.  When a line should
-//    //  be stashed using the linefunc, instead it gets changed
-//    //  to early -- e.g. at routine definition time.
-//    if (!scallop_variable_substitution(scallop, linebytes))
-//    {
-//        priv->depth--;
-//        scallop_set_result(scallop, -2);
-//        return;
-//    }
-
     size_t argc = 0;
     char ** args = linebytes->tokenizer(linebytes,
                                         true,

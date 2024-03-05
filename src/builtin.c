@@ -423,6 +423,10 @@ static int builtin_handler_source(void * scmd,
         return -2;
     }
 
+    // Store script arguments in scallop's variable
+    // collection so dispatch can perform substitution.
+    scallop->store_args(scallop, argc, args);
+
     // Stash the current console input source & swap to source file
     FILE * input = console->get_inputf(console);
     console->set_inputf(console, source);
