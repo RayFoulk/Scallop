@@ -205,10 +205,6 @@ static int scallop_rtn_handler(void * scmd,
         linebytes = (bytes_t *) priv->lines->data(priv->lines);
         if (linebytes)
         {
-//            // Store subroutine arguments in scallop's variable
-//            // collection so dispatch can perform substitution.
-//            scallop->store_args(scallop, argc, args);
-
             BLAMMO(DEBUG, "About to dispatch(\'%s\')",
                           linebytes->cstr(linebytes));
 
