@@ -32,6 +32,7 @@
 #include "scallop.h"
 #include "command.h"
 #include "routine.h"
+#include "while.h"
 #include "parser.h"
 #include "builtin.h"
 
@@ -540,6 +541,65 @@ static int builtin_handler_routine(void * scmd,
 }
 
 //------------------------------------------------------------------------|
+static int builtin_linefunc_while(void * context,
+                                  void * object,
+                                  const char * line)
+{
+
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_popfunc_while(void * context,
+                                 void * object)
+{
+
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_handler_while(void * scmd,
+                                 void * context,
+                                 int argc,
+                                 char ** args)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a conditional expression");
+        return -1;
+    }
+
+    // Create a while loop construct
+    scallop_while_t * whileloop = scallop_while_pub.create(args[1]);
+    if (!whileloop)
+    {
+        console->error(console, "create while \'%s\' failed", args[1]);
+        return -2;
+    }
+
+    // Push the new while loop onto the language construct
+    // stack.  This should get popped off when the matching 'end'
+    // statement is reached, and at THAT point it should execute ONLY IF
+    // in the base context, and NOT while in the middle of defining a
+    // routine. Until then, incoming lines will be added to the construct.
+    scallop->construct_push(scallop,
+    "while loop X",
+    context,
+    whileloop,
+    builtin_linefunc_while,
+    builtin_popfunc_while);
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
 static int builtin_handler_end(void * scmd,
                                void * context,
                                int argc,
@@ -655,6 +715,15 @@ bool register_builtin_commands(void * scallop_ptr)
         "routine",
         " <routine-name> ...",
         "define and register a new routine");
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    success &= cmds->register_cmd(cmds, cmd);
+
+    cmd = cmds->create(
+        builtin_handler_while,
+        scallop,
+        "while",
+        " (expression)",
+        "declare a while-loop construct");
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
     success &= cmds->register_cmd(cmds, cmd);
 

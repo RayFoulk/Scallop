@@ -146,9 +146,9 @@ static void scallop_while_append(scallop_while_t * whileloop, const char * line)
 
 //------------------------------------------------------------------------|
 static int scallop_while_handler(void * scmd,
-                               void * context,
-                               int argc,
-                               char ** args)
+                                 void * context,
+                                 int argc,
+                                 char ** args)
 {
     // The command handler function for every whileloop once registered.
     // perform substitutions on lines/args,
@@ -179,7 +179,7 @@ static int scallop_while_handler(void * scmd,
 
     // Store subwhileloop arguments in scallop's variable
     // collection so dispatch can perform substitution.
-    scallop->store_args(scallop, argc, args);
+    //scallop->store_args(scallop, argc, args);
 
     scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
     bytes_t * linebytes = NULL;
