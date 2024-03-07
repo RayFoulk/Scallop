@@ -545,7 +545,10 @@ static int builtin_linefunc_while(void * context,
                                   void * object,
                                   const char * line)
 {
+    BLAMMO(VERBOSE, "");
 
+    // TODO: For normal while loop in base context,
+    //  keep appending lines until the 'end' is reached
 
     return 0;
 }
@@ -554,7 +557,11 @@ static int builtin_linefunc_while(void * context,
 static int builtin_popfunc_while(void * context,
                                  void * object)
 {
+    BLAMMO(VERBOSE, "");
 
+    // TODO: For normal while loop in base context,
+    //  the loop should NOW be executed (call the whileloop->handler)
+    //  Then, when it is finished, destroy it
 
     return 0;
 }

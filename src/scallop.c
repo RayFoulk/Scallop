@@ -888,6 +888,14 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     // call that construct's line handler function rather
     // than executing the line directly. AND if and only
     // if the command itself is not a construct keyword.
+
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // FIXME: For constructs like "if/else" and "while" these should be
+    //  subject to the routine they're under.  Need to find the next
+    //  routine down on the construct stack, and keep adding lines to that
+    //  which will all get executed in the routine call.  The logic here
+    //  needs to be fixed somehow to check if we're still in a routine
+    //  definition.
     int result = 0;
     if (!command->is_construct(command) && construct && construct->linefunc)
     {

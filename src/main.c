@@ -166,6 +166,7 @@ int parse(int argc, char *argv[])
 
             case 's':
                 // load and run a script on startup
+                // TODO: ADD EXTRA UNPARSED ARGS HERE?
                 snprintf(line, APP_BUFFER_SIZE, "source %s", optarg);
                 app->scallop->dispatch(app->scallop, line);
                 break;

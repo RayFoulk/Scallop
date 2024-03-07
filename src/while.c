@@ -74,7 +74,8 @@ static scallop_while_t * scallop_while_create(const char * condition)
     memzero(whileloop->priv, sizeof(scallop_while_priv_t));
     scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
 
-    // Name of this whileloop (NO SPACES!!! - FIXME filter this)
+    // The conditional expression associated with the while loop
+    // that should be re-evaluated on each iteration.
     priv->condition = bytes_pub.create(condition, strlen(condition));
     if (!priv->condition)
     {
