@@ -896,6 +896,12 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     //  which will all get executed in the routine call.  The logic here
     //  needs to be fixed somehow to check if we're still in a routine
     //  definition.
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // TODO: search the construct stack from top to bottom and if a routine
+    // is found underneath then use that routine's linefunc DESPITE the current
+    // command being a construct!!!
+    // TEST THIS WITH NESTED ROUTINE DEFINITIONS
+
     int result = 0;
     if (!command->is_construct(command) && construct && construct->linefunc)
     {

@@ -722,7 +722,7 @@ bool register_builtin_commands(void * scallop_ptr)
         "routine",
         " <routine-name> ...",
         "define and register a new routine");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT | SCALLOP_CMD_ATTR_ROUTINE);
     success &= cmds->register_cmd(cmds, cmd);
 
     cmd = cmds->create(
