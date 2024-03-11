@@ -374,13 +374,6 @@ static inline bool scallop_cmd_is_construct(scallop_cmd_t * cmd)
 }
 
 //------------------------------------------------------------------------|
-static inline bool scallop_cmd_is_routine(scallop_cmd_t * cmd)
-{
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
-    return priv->attributes & SCALLOP_CMD_ATTR_ROUTINE;
-}
-
-//------------------------------------------------------------------------|
 static inline const char * scallop_cmd_keyword(scallop_cmd_t * cmd)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
@@ -673,7 +666,6 @@ const scallop_cmd_t scallop_cmd_pub = {
     &scallop_cmd_is_alias,
     &scallop_cmd_is_mutable,
     &scallop_cmd_is_construct,
-    &scallop_cmd_is_routine,
     &scallop_cmd_keyword,
     &scallop_cmd_arghints,
     &scallop_cmd_description,

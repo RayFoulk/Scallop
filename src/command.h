@@ -54,14 +54,7 @@ typedef enum
     // differently than single-line commands in dispatch().  Examples
     // of language constructs include 'routine' and 'end', and anything
     // that causes a construct stack push or pop.
-    SCALLOP_CMD_ATTR_CONSTRUCT  = (1 << 2),
-
-    // Whether or not a command that is a construct is also a routine.
-    // Routines necessarily enjoy special status above all other
-    // constructs as it's necessary to distinguish execution flow versus
-    // defining and registering a routine's contents.  With other
-    // constructs this can be handled immediately in the base context.
-    SCALLOP_CMD_ATTR_ROUTINE    = (1 << 3)
+    SCALLOP_CMD_ATTR_CONSTRUCT  = (1 << 2)
 
     // All further higher bits are reserved for later use or special-case
     // implementations that use scallop as a CLI toolkit.  Those should
@@ -130,9 +123,6 @@ typedef struct scallop_cmd_t
 
     // Get whether this command is part of a multi-line language construct
     bool (*is_construct)(struct scallop_cmd_t * cmd);
-
-    // Get whether this command is specifically the 'routine' construct
-    bool (*is_routine)(struct scallop_cmd_t * cmd);
 
     // Get keyword for _this_ command
     const char * (*keyword)(struct scallop_cmd_t * cmd);
