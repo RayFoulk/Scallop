@@ -537,6 +537,9 @@ static int builtin_handler_routine(void * scmd,
                             builtin_linefunc_routine,
                             builtin_popfunc_routine);
 
+    // Mark this as the beginning of a routine definition
+    scallop->construct_routine_def(scallop);
+
     return 0;
 }
 

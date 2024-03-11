@@ -124,7 +124,7 @@ scallop_priv_t;
 // Private data structure for context stack.  All data members must be
 // unmanaged by this struct, but point elsewhere to data that persists
 // for the lifetime of the context.
-typedef struct
+typedef struct scallop_construct_t
 {
     // Name of this language construct
     char * name;
@@ -139,6 +139,14 @@ typedef struct
     // 'routine' instance, or a 'while loop' instance or some other
     // added-on language construct.
     void * object;
+
+    // The pointer to the routine construct for which this construct is
+    // a part.  For the initial 'routine' keyword this will be self-
+    // referential.  By default it should be NULL for all constructs
+    // that are being executed and not as part of the definition on a
+    // new routine.  routines are basically like a script that has
+    // to be 'written' and this helps to track 'line-adding mode'.
+    struct scallop_construct_t * routine_def;
 
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
@@ -901,6 +909,17 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     // is found underneath then use that routine's linefunc DESPITE the current
     // command being a construct!!!
     // TEST THIS WITH NESTED ROUTINE DEFINITIONS
+    bool is_routine_def = (construct->routine_def != NULL);
+    if (is_routine_def) // && is not immediate imperative 'end' statement
+        // specifically corresponding to the one about to pop the routine def
+    {
+        construct = construct->routine_def;
+    }
+
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 
     int result = 0;
     if (!command->is_construct(command) && construct && construct->linefunc)
@@ -1043,12 +1062,27 @@ static void scallop_construct_push(scallop_t * scallop,
     construct->name = (char *) name;
     construct->context = context;
     construct->object = object;
+    construct->routine_def = NULL;
     construct->linefunc = linefunc;
     construct->popfunc = popfunc;
 
     // Push the context onto the stack, treating the 'last' link as
     // the top of the stack.  New construct becomes the new 'last'
-    priv->constructs->last(priv->constructs);
+    scallop_construct_t * last = (scallop_construct_t *)
+            priv->constructs->last(priv->constructs);
+
+    // New construct on the stack always 'inherits' the previous entry's
+    // routine definition.  This only becomes non-null by a new routine
+    // definition and goes away when the stack is sufficiently popped.
+    if (last)
+    {
+        construct->routine_def = last->routine_def;
+    }
+    else
+    {
+        construct->routine_def = NULL;
+    }
+
     priv->constructs->insert(priv->constructs, construct);
 
     scallop_rebuild_prompt(scallop);
@@ -1085,6 +1119,26 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
+static int scallop_construct_routine_def(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+
+    // Select the top item and get the context
+    scallop_construct_t * construct = (scallop_construct_t *)
+        priv->constructs->last(priv->constructs);
+
+    // Mark this top construct element as being the beginning of a
+    // routine definition.  This can (should) only be ended by a same-
+    // scope 'end' statement.
+    if (construct)
+    {
+        construct->routine_def = construct;
+    }
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
 const scallop_t scallop_pub = {
     &scallop_create,
     &scallop_destroy,
@@ -1100,5 +1154,6 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
+    &scallop_construct_routine_def,
     NULL
 };

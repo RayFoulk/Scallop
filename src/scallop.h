@@ -115,10 +115,16 @@ typedef struct scallop_t
     // Pop a context name off the top of the context stack
     int (*construct_pop)(struct scallop_t * scallop);
 
+    // Mark this top construct element as being the beginning of a
+    // routine definition.  This can (should) only be ended by a same-
+    // scope 'end' statement.
+    int (*construct_routine_def)(struct scallop_t * scallop);
+
+
     // Get the name of the current context (top of stack).
     // Returns NULL when on "bottom" (which is actually
     // the base prompt left untouched)
-    const char * (*construct_name)(struct scallop_t * scallop);
+//    const char * (*construct_name)(struct scallop_t * scallop);
 
     // Private data
     void * priv;
