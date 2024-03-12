@@ -146,7 +146,7 @@ typedef struct scallop_construct_t
     // that are being executed and not as part of the definition on a
     // new routine.  routines are basically like a script that has
     // to be 'written' and this helps to track 'line-adding mode'.
-    struct scallop_construct_t * routine_def;
+    struct scallop_construct_t * routine_decl;
 
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
@@ -909,11 +909,11 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     // is found underneath then use that routine's linefunc DESPITE the current
     // command being a construct!!!
     // TEST THIS WITH NESTED ROUTINE DEFINITIONS
-    bool is_routine_def = (construct->routine_def != NULL);
-    if (is_routine_def) // && is not immediate imperative 'end' statement
+    bool is_routine_decl = (construct->routine_decl != NULL);
+    if (is_routine_decl) // && is not immediate imperative 'end' statement
         // specifically corresponding to the one about to pop the routine def
     {
-        construct = construct->routine_def;
+        construct = construct->routine_decl;
     }
 
     // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -922,7 +922,14 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
 
     int result = 0;
-    if (!command->is_construct(command) && construct && construct->linefunc)
+    //if (!command->is_construct(command) && construct && construct->linefunc)
+
+    if (construct && construct->linefunc && (   // all cases need this
+            (is_routine_decl && !(command->is_construct_pop(command) && scallop->construct_routine_scope(scallop) == 1)) ||
+            (!command->is_construct(command))   // no routine, regular command
+        )
+    )
+
     {
         result = construct->linefunc(construct->context,
                                      construct->object,
@@ -1062,7 +1069,7 @@ static void scallop_construct_push(scallop_t * scallop,
     construct->name = (char *) name;
     construct->context = context;
     construct->object = object;
-    construct->routine_def = NULL;
+    construct->routine_decl = NULL;
     construct->linefunc = linefunc;
     construct->popfunc = popfunc;
 
@@ -1076,11 +1083,11 @@ static void scallop_construct_push(scallop_t * scallop,
     // definition and goes away when the stack is sufficiently popped.
     if (last)
     {
-        construct->routine_def = last->routine_def;
+        construct->routine_decl = last->routine_decl;
     }
     else
     {
-        construct->routine_def = NULL;
+        construct->routine_decl = NULL;
     }
 
     priv->constructs->insert(priv->constructs, construct);
@@ -1119,7 +1126,7 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
-static int scallop_construct_routine_def(scallop_t * scallop)
+static int scallop_construct_routine_decl(scallop_t * scallop)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
 
@@ -1132,10 +1139,46 @@ static int scallop_construct_routine_def(scallop_t * scallop)
     // scope 'end' statement.
     if (construct)
     {
-        construct->routine_def = construct;
+        construct->routine_decl = construct;
     }
 
     return 0;
+}
+
+//------------------------------------------------------------------------|
+static int scallop_construct_routine_scope(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+
+    // Select the top item and get the context
+    scallop_construct_t * construct = (scallop_construct_t *)
+        priv->constructs->last(priv->constructs);
+
+    if (!construct || !construct->routine_decl)
+    {
+        return 0;
+    }
+
+    // Iterate down through the stack until we find something that
+    // is different.
+    int scope = 0;
+    scallop_construct_t * routine_decl = construct->routine_decl;
+
+    while (construct)
+    {
+        construct = (scallop_construct_t *)
+                priv->constructs->prev(priv->constructs);
+        scope++;
+
+        if (construct && (construct->routine_decl != routine_decl))
+        {
+            return scope;
+        }
+    }
+
+    // Impossible?  Exhausted the stack and never found anything different.
+    BLAMMO(ERROR, "Start of routine declaration not found!");
+    return -1;
 }
 
 //------------------------------------------------------------------------|
@@ -1154,6 +1197,7 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
-    &scallop_construct_routine_def,
+    &scallop_construct_routine_decl,
+    &scallop_construct_routine_scope,
     NULL
 };

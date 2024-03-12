@@ -118,13 +118,14 @@ typedef struct scallop_t
     // Mark this top construct element as being the beginning of a
     // routine definition.  This can (should) only be ended by a same-
     // scope 'end' statement.
-    int (*construct_routine_def)(struct scallop_t * scallop);
+    int (*construct_routine_decl)(struct scallop_t * scallop);
 
-
-    // Get the name of the current context (top of stack).
-    // Returns NULL when on "bottom" (which is actually
-    // the base prompt left untouched)
-//    const char * (*construct_name)(struct scallop_t * scallop);
+    // Get the scope nest-level of the current routine.  This should
+    // reflect how far down the stack you'd have to go to get to a
+    // different routine context.  Level 1 should be the base level
+    // scope of the current routine.  Level 0 indicates NULL
+    // declaration (not in a routine definition).
+    int (*construct_routine_scope)(struct scallop_t * scallop);
 
     // Private data
     void * priv;

@@ -538,7 +538,7 @@ static int builtin_handler_routine(void * scmd,
                             builtin_popfunc_routine);
 
     // Mark this as the beginning of a routine definition
-    scallop->construct_routine_def(scallop);
+    scallop->construct_routine_decl(scallop);
 
     return 0;
 }
@@ -725,7 +725,7 @@ bool register_builtin_commands(void * scallop_ptr)
         "routine",
         " <routine-name> ...",
         "define and register a new routine");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
     cmd = cmds->create(
@@ -734,7 +734,7 @@ bool register_builtin_commands(void * scallop_ptr)
         "while",
         " (expression)",
         "declare a while-loop construct");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
     cmd = cmds->create(
@@ -743,7 +743,7 @@ bool register_builtin_commands(void * scallop_ptr)
         "end",
         NULL,
         "finalize a multi-line language construct");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_POP);
     success &= cmds->register_cmd(cmds, cmd);
 
     success &= cmds->register_cmd(cmds, cmds->create(

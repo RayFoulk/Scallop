@@ -212,10 +212,8 @@ static scallop_cmd_t * scallop_cmd_alias(scallop_cmd_t * cmd,
     scallop_cmd_attr_t attributes =
             SCALLOP_CMD_ATTR_ALIAS | SCALLOP_CMD_ATTR_MUTABLE;
 
-    if (priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT)
-    {
-        attributes |= SCALLOP_CMD_ATTR_CONSTRUCT;
-    }
+    attributes |= (priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
+    attributes |= (priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_POP);
 
     alias->set_attributes(alias, attributes);
 
@@ -370,7 +368,15 @@ static inline bool scallop_cmd_is_mutable(scallop_cmd_t * cmd)
 static inline bool scallop_cmd_is_construct(scallop_cmd_t * cmd)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
-    return priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT;
+    return priv->attributes & (SCALLOP_CMD_ATTR_CONSTRUCT_PUSH |
+                               SCALLOP_CMD_ATTR_CONSTRUCT_POP);
+}
+
+//------------------------------------------------------------------------|
+static inline bool scallop_cmd_is_construct_pop(scallop_cmd_t * cmd)
+{
+    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    return priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_POP;
 }
 
 //------------------------------------------------------------------------|
@@ -666,6 +672,7 @@ const scallop_cmd_t scallop_cmd_pub = {
     &scallop_cmd_is_alias,
     &scallop_cmd_is_mutable,
     &scallop_cmd_is_construct,
+    &scallop_cmd_is_construct_pop,
     &scallop_cmd_keyword,
     &scallop_cmd_arghints,
     &scallop_cmd_description,
