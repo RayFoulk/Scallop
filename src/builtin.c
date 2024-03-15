@@ -565,6 +565,9 @@ static int builtin_popfunc_while(void * context,
     // TODO: For normal while loop in base context,
     //  the loop should NOW be executed (call the whileloop->handler)
     //  Then, when it is finished, destroy it
+    // NOTE: During definition of a routine containing a while loop,
+    // this will have no lines to execute and the condition will exist
+    // but cannot be evaluated due to substitution not having occurred.
 
     return 0;
 }

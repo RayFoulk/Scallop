@@ -823,7 +823,33 @@ static int scallop_set_result(scallop_t * scallop, int result)
 // be overflowed into 'routine' style argument substitution, in addition
 // to variable-sustitution. -- TBD at a later time.
 // This would require a call to scallop_store_args() from main().
-
+//------------------------------------------------------------------------|
+// TODO: CLEAN UP THIS MESS:
+// if in the middle of defining a routine, while loop,
+// or other user-registered language construct, then
+// call that construct's line handler function rather
+// than executing the line directly. AND if and only
+// if the command itself is not a construct keyword.
+// TODO: For constructs like "if/else" and "while" these should be
+//  subject to the routine they're under.  Need to find the next
+//  routine down on the construct stack, and keep adding lines to that
+//  which will all get executed in the routine call.  The logic here
+//  needs to be fixed somehow to check if we're still in a routine
+//  definition.
+// TODO: TEST THIS WITH NESTED ROUTINE DEFINITIONS
+// FIXME: THIS DOES NOT WORK -- The while inside the routine does not
+//  ever push to the construct stack since it gets added to the routine
+//  linefunc.  Thus when we check routine scope it returns false positive.
+//  it's likely that for construct push and pop commands, it is necessary
+//  to call linefunc AND execute!!!
+//------------------------------------------------------------------------|
+//    if (construct && construct->linefunc && (
+//            // everything that falls within a routine declaration
+//            // should be added to the routine.
+//            (is_within_routine_decl && !is_end_of_routine_decl) ||
+//            // no routine declaration, just a regular command
+//            (!command->is_construct(command))
+//    ))
 static void scallop_dispatch(scallop_t * scallop, const char * line)
 {
     // Guard block NULL line ptr, or trivially empty line
@@ -882,7 +908,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
-        scallop_set_result(scallop, -3);
+        scallop_set_result(scallop, -2);
         return;
     }
 
@@ -891,51 +917,44 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     scallop_construct_t * construct = (scallop_construct_t *)
             priv->constructs->last(priv->constructs);
 
-    // if in the middle of defining a routine, while loop,
-    // or other user-registered language construct, then
-    // call that construct's line handler function rather
-    // than executing the line directly. AND if and only
-    // if the command itself is not a construct keyword.
+    bool is_within_routine_decl = (construct && construct->routine_decl);
+    bool is_end_of_routine_decl = (command->is_construct_pop(command) &&
+            scallop->construct_routine_scope(scallop) == 1);
 
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    // FIXME: For constructs like "if/else" and "while" these should be
-    //  subject to the routine they're under.  Need to find the next
-    //  routine down on the construct stack, and keep adding lines to that
-    //  which will all get executed in the routine call.  The logic here
-    //  needs to be fixed somehow to check if we're still in a routine
-    //  definition.
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    // TODO: search the construct stack from top to bottom and if a routine
-    // is found underneath then use that routine's linefunc DESPITE the current
-    // command being a construct!!!
-    // TEST THIS WITH NESTED ROUTINE DEFINITIONS
-    bool is_routine_decl = (construct->routine_decl != NULL);
-    if (is_routine_decl) // && is not immediate imperative 'end' statement
-        // specifically corresponding to the one about to pop the routine def
+    // This should not be possible, but check anyway just to eliminate
+    // it from the truth table.  'end' without matching 'routine'?
+    if (is_end_of_routine_decl && !is_within_routine_decl)
+    {
+        priv->console->error(priv->console,
+                             "pop command \'%s\' without declaration!",
+                             args[0]);
+
+        linebytes->destroy(linebytes);
+        priv->depth--;
+        scallop_set_result(scallop, -3);
+        return;
+    }
+
+    // replace the construct with routine if we're inside a declaration
+    if (is_within_routine_decl)
     {
         construct = construct->routine_decl;
     }
 
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-
     int result = 0;
-    //if (!command->is_construct(command) && construct && construct->linefunc)
+    bool substitution = true;
 
-    if (construct && construct->linefunc && (   // all cases need this
-            (is_routine_decl && !(command->is_construct_pop(command) && scallop->construct_routine_scope(scallop) == 1)) ||
-            (!command->is_construct(command))   // no routine, regular command
-        )
-    )
-
+    if (construct && construct->linefunc &&
+        is_within_routine_decl && !is_end_of_routine_decl)
     {
         result = construct->linefunc(construct->context,
                                      construct->object,
                                      line);
+        substitution = false;
     }
-    else
+    //else
+
+    if (command->is_construct(command) || !is_within_routine_decl)
     {
         // Need to make another copy of the line now in execution
         // so that variable substitution can occur.
@@ -945,11 +964,15 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // before calling tokenize, to allow for supporting spaces
         // in variables, multiple variables inside arguments, and
         // complex expression evaluation.
-        if (!scallop_variable_substitution(scallop, linebytes))
+        // UPDATE 3/14/2024 - suspend substitution when linefunc was called.
+        //  variables might not yet be defined!
+        // FIXME: BROKEN!!! DO NOT substitute for constructs EVER.
+        //  breakage when executing while loop inside routine declaration.
+        if (substitution && !scallop_variable_substitution(scallop, linebytes))
         {
             linebytes->destroy(linebytes);
             priv->depth--;
-            scallop_set_result(scallop, -2);
+            scallop_set_result(scallop, -4);
             return;
         }
 
