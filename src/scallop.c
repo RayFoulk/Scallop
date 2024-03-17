@@ -942,15 +942,14 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     }
 
     int result = 0;
-    bool substitution = true;
+    bool call_linefunc = construct && construct->linefunc &&
+            is_within_routine_decl && !is_end_of_routine_decl;
 
-    if (construct && construct->linefunc &&
-        is_within_routine_decl && !is_end_of_routine_decl)
+    if (call_linefunc)
     {
         result = construct->linefunc(construct->context,
                                      construct->object,
                                      line);
-        substitution = false;
     }
     //else
 
@@ -968,7 +967,8 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         //  variables might not yet be defined!
         // FIXME: BROKEN!!! DO NOT substitute for constructs EVER.
         //  breakage when executing while loop inside routine declaration.
-        if (substitution && !scallop_variable_substitution(scallop, linebytes))
+        if (!call_linefunc && !command->is_construct(command) &&
+                !scallop_variable_substitution(scallop, linebytes))
         {
             linebytes->destroy(linebytes);
             priv->depth--;
