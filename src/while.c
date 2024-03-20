@@ -173,7 +173,7 @@ static int scallop_while_handler(void * scmd,
     if (!whileloop)
     {
         console->error(console,
-                       "whileloop \'%s\' not found",
+                       "while loop \'%s\' not found",
                        cmd->keyword(cmd));
         return -1;
     }

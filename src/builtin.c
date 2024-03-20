@@ -537,9 +537,6 @@ static int builtin_handler_routine(void * scmd,
                             builtin_linefunc_routine,
                             builtin_popfunc_routine);
 
-    // Mark this as the beginning of a routine definition
-    //scallop->construct_routine_decl(scallop);
-
     return 0;
 }
 
@@ -550,8 +547,13 @@ static int builtin_linefunc_while(void * context,
 {
     BLAMMO(VERBOSE, "");
 
-    // TODO: For normal while loop in base context,
-    //  keep appending lines until the 'end' is reached
+    scallop_t * scallop = (scallop_t *) context;
+    scallop_while_t * whileloop = (scallop_while_t *) object;
+
+    // put the raw line as-is in the routine.  variable substitutions
+    // and tokenization will occur later during while execution.
+    whileloop->append(whileloop, line);
+    (void) scallop;
 
     return 0;
 }
@@ -562,17 +564,36 @@ static int builtin_popfunc_while(void * context,
 {
     BLAMMO(VERBOSE, "");
 
-    // TODO: For normal while loop in base context,
-    //  the loop should NOW be executed (call the whileloop->handler)
-    //  Then, when it is finished, destroy it
+    scallop_t * scallop = (scallop_t *) context;
+    scallop_while_t * whileloop = (scallop_while_t *) object;
+
     // NOTE: During definition of a routine containing a while loop,
     // this will have no lines to execute and the condition will exist
     // but cannot be evaluated due to substitution not having occurred.
 
-    return 0;
+    // TODO: For normal while loop in base context,
+    //  the loop should NOW be executed (call the whileloop->handler)
+    //  Then, when it is finished, destroy it.
+    // TODO: Consider: while loops are like immediate functions,
+    //  they don't take arguments (but could?!?!? that's weird)
+
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // FIXME: API BREAKAGE - the actual while loop, once defined,
+    // is not a registered command to be looked up!!! but it needs
+    // to be run here.  Gotta think about this.
+    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+    int result = whileloop->handler(whileloop, context, 0, NULL);
+
+    // While loop evaporates
+    whileloop->destroy(whileloop);
+
+    return result;
 }
 
 //------------------------------------------------------------------------|
+// while loops are shorter-lived constructs than routines.  They only
+// live inside the construct stack and evaporate when out of scope.
 static int builtin_handler_while(void * scmd,
                                  void * context,
                                  int argc,
