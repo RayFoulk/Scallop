@@ -538,7 +538,7 @@ static int builtin_handler_routine(void * scmd,
                             builtin_popfunc_routine);
 
     // Mark this as the beginning of a routine definition
-    scallop->construct_routine_decl(scallop);
+    //scallop->construct_routine_decl(scallop);
 
     return 0;
 }
@@ -603,7 +603,7 @@ static int builtin_handler_while(void * scmd,
     // in the base context, and NOT while in the middle of defining a
     // routine. Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-    "while loop X",
+    "while",                            // TODO: Consider names for while
     context,
     whileloop,
     builtin_linefunc_while,

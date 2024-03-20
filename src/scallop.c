@@ -109,6 +109,10 @@ typedef struct
     // Current prompt text buffer, rebuilt whenever context changes.
     bytes_t * prompt;
 
+    // Keep track of prompt base independently, rather than
+    // pushing it into the construct stack.
+    const char * prompt_base;
+
     // Root of the command-tree
     scallop_cmd_t * commands;
 
@@ -146,7 +150,7 @@ typedef struct scallop_construct_t
     // that are being executed and not as part of the definition on a
     // new routine.  routines are basically like a script that has
     // to be 'written' and this helps to track 'line-adding mode'.
-    struct scallop_construct_t * routine_decl;
+    //struct scallop_construct_t * routine_decl;
 
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
@@ -408,6 +412,54 @@ static char * scallop_arg_hints(void * object,
 }
 
 //------------------------------------------------------------------------|
+// Private prompt rebuild function on context push/pop
+static void scallop_rebuild_prompt(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    scallop_construct_t * construct = NULL;
+
+    priv->prompt->resize(priv->prompt, 0);
+
+    // Start with prompt base
+    priv->prompt->assign(priv->prompt,
+                         priv->prompt_base,
+                         strlen(priv->prompt_base));
+
+    // Continue from the bottom of the stack (first) and work towards the top
+    construct = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
+    while (construct)
+    {
+        if (!construct->name)
+        {
+
+            priv->console->error(priv->console,
+                                 "NULL name for construct %p",
+                                 construct);
+            break;
+        }
+
+        // put a visual/syntactical delimiter between
+        // constructs shown within the prompt.
+        priv->prompt->append(priv->prompt,
+                             scallop_prompt_delim,
+                             strlen(scallop_prompt_delim));
+
+        priv->prompt->append(priv->prompt,
+                             construct->name,
+                             strlen(construct->name));
+
+        construct = (scallop_construct_t *)
+                priv->constructs->next(priv->constructs);
+
+    }
+
+    priv->prompt->append(priv->prompt,
+                         scallop_prompt_finale,
+                         strlen(scallop_prompt_finale));
+}
+
+//------------------------------------------------------------------------|
 static scallop_t * scallop_create(console_t * console,
                                   scallop_registration_f registration,
                                   const char * prompt_base)
@@ -473,9 +525,10 @@ static scallop_t * scallop_create(console_t * console,
         return NULL;
     }
 
-    // Initialize prompt, push prompt_base as initial 'construct'
+    // Initialize prompt, save the prompt base, build initial prompt
     priv->prompt = bytes_pub.create(NULL, 0);
-    scallop->construct_push(scallop, prompt_base, NULL, NULL, NULL, NULL);
+    priv->prompt_base = prompt_base;
+    scallop_rebuild_prompt(scallop);
 
     // Create the top-level list of commands
     priv->commands = scallop_cmd_pub.create(NULL, NULL, NULL, NULL, NULL);
@@ -846,7 +899,7 @@ static int scallop_set_result(scallop_t * scallop, int result)
 //    if (construct && construct->linefunc && (
 //            // everything that falls within a routine declaration
 //            // should be added to the routine.
-//            (is_within_routine_decl && !is_end_of_routine_decl) ||
+//            (is_within_routine_decl && !is_end_of_declaration) ||
 //            // no routine declaration, just a regular command
 //            (!command->is_construct(command))
 //    ))
@@ -912,21 +965,31 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         return;
     }
 
-    // Select the top item of the language construct stack
-    // and get the current construct
+    // The top item on the language construct stack is whatever is
+    // currently within nested scope (ex: while, if/else, lambda, etc...)
+    // but in most cases is only for keeping track of nesting level
     scallop_construct_t * construct = (scallop_construct_t *)
             priv->constructs->last(priv->constructs);
 
-    bool is_within_routine_decl = (construct && construct->routine_decl);
-    bool is_end_of_routine_decl = (command->is_construct_pop(command) &&
-            scallop->construct_routine_scope(scallop) == 1);
+    // The bottom item on the language stack is the most important
+    // construct declaration that is actively being defined, rather
+    // than executed.  When things are executed, the whole context
+    // becomes unpacked and flattened one construct at a time.
+    scallop_construct_t * declaration = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
 
-    // This should not be possible, but check anyway just to eliminate
-    // it from the truth table.  'end' without matching 'routine'?
-    if (is_end_of_routine_decl && !is_within_routine_decl)
+    // Check if the command is a construct that is about to pop the
+    // last item on the construct stack, meaning this is about to be
+    // the end of this multi-line construct declaration!
+    bool is_end_of_declaration = (command->is_construct_pop(command) &&
+            priv->constructs->length(priv->constructs) == 1);
+
+    // This should not happen, but check anyway just to eliminate
+    // it from the truth table.  'end' without matching 'routine/while/if'?
+    if (is_end_of_declaration && !declaration)
     {
         priv->console->error(priv->console,
-                             "pop command \'%s\' without declaration!",
+                             "pop command \'%s\' without construct declaration!",
                              args[0]);
 
         linebytes->destroy(linebytes);
@@ -935,25 +998,21 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         return;
     }
 
-    // replace the construct with routine if we're inside a declaration
-    if (is_within_routine_decl)
-    {
-        construct = construct->routine_decl;
-    }
-
+    // The truth table here gets complicated
+    // TODO: Transfer TT notes to here.
     int result = 0;
-    bool call_linefunc = construct && construct->linefunc &&
-            is_within_routine_decl && !is_end_of_routine_decl;
+    bool call_linefunc = declaration && declaration->linefunc &&
+                         !is_end_of_declaration;
 
     if (call_linefunc)
     {
-        result = construct->linefunc(construct->context,
-                                     construct->object,
-                                     line);
+        // Always add the raw line to the active declaration
+        result = declaration->linefunc(declaration->context,
+                                       declaration->object,
+                                       line);
     }
-    //else
 
-    if (command->is_construct(command) || !is_within_routine_decl)
+    if (command->is_construct(command) || !declaration)
     {
         // Need to make another copy of the line now in execution
         // so that variable substitution can occur.
@@ -964,9 +1023,10 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // in variables, multiple variables inside arguments, and
         // complex expression evaluation.
         // UPDATE 3/14/2024 - suspend substitution when linefunc was called.
-        //  variables might not yet be defined!
-        // FIXME: BROKEN!!! DO NOT substitute for constructs EVER.
-        //  breakage when executing while loop inside routine declaration.
+        // variables might not yet be defined!
+        // ALSO: DO NOT EVER substitute for constructs.  This would
+        // cause breakage when executing (ex) while loops inside routine
+        // because the expression gets prematurely evaluated.
         if (!call_linefunc && !command->is_construct(command) &&
                 !scallop_variable_substitution(scallop, linebytes))
         {
@@ -1032,51 +1092,6 @@ static void scallop_quit(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
-// Private prompt rebuild function on context push/pop
-static void scallop_rebuild_prompt(scallop_t * scallop)
-{
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-    scallop_construct_t * construct = NULL;
-
-    priv->prompt->resize(priv->prompt, 0);
-
-    // start at the bottom of the stack (first) and work towards the top
-    construct = (scallop_construct_t *)
-            priv->constructs->first(priv->constructs);
-    while (construct)
-    {
-        if (!construct->name)
-        {
-
-            priv->console->error(priv->console,
-                                 "NULL name for construct %p",
-                                 construct);
-            break;
-        }
-
-        priv->prompt->append(priv->prompt,
-                             construct->name,
-                             strlen(construct->name));
-
-        construct = (scallop_construct_t *)
-                priv->constructs->next(priv->constructs);
-
-        // put a visual/syntactical delimiter between constructs
-        // shown within the prompt.
-        if (construct)
-        {
-            priv->prompt->append(priv->prompt,
-                                 scallop_prompt_delim,
-                                 strlen(scallop_prompt_delim));
-        }
-    }
-
-    priv->prompt->append(priv->prompt,
-                         scallop_prompt_finale,
-                         strlen(scallop_prompt_finale));
-}
-
-//------------------------------------------------------------------------|
 static void scallop_construct_push(scallop_t * scallop,
                                    const char * name,
                                    void * context,
@@ -1092,7 +1107,6 @@ static void scallop_construct_push(scallop_t * scallop,
     construct->name = (char *) name;
     construct->context = context;
     construct->object = object;
-    construct->routine_decl = NULL;
     construct->linefunc = linefunc;
     construct->popfunc = popfunc;
 
@@ -1100,18 +1114,6 @@ static void scallop_construct_push(scallop_t * scallop,
     // the top of the stack.  New construct becomes the new 'last'
     scallop_construct_t * last = (scallop_construct_t *)
             priv->constructs->last(priv->constructs);
-
-    // New construct on the stack always 'inherits' the previous entry's
-    // routine definition.  This only becomes non-null by a new routine
-    // definition and goes away when the stack is sufficiently popped.
-    if (last)
-    {
-        construct->routine_decl = last->routine_decl;
-    }
-    else
-    {
-        construct->routine_decl = NULL;
-    }
 
     priv->constructs->insert(priv->constructs, construct);
 
@@ -1123,8 +1125,8 @@ static int scallop_construct_pop(scallop_t * scallop)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
 
-    // Do not allow popping the final element, which is the base prompt
-    if (priv->constructs->length(priv->constructs) <= 1)
+    // Can't pop when the stack is empty!
+    if (priv->constructs->empty(priv->constructs))
     {
         priv->console->error(priv->console, "construct stack is empty");
         return -1;
@@ -1149,62 +1151,6 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
-static int scallop_construct_routine_decl(scallop_t * scallop)
-{
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-
-    // Select the top item and get the context
-    scallop_construct_t * construct = (scallop_construct_t *)
-        priv->constructs->last(priv->constructs);
-
-    // Mark this top construct element as being the beginning of a
-    // routine definition.  This can (should) only be ended by a same-
-    // scope 'end' statement.
-    if (construct)
-    {
-        construct->routine_decl = construct;
-    }
-
-    return 0;
-}
-
-//------------------------------------------------------------------------|
-static int scallop_construct_routine_scope(scallop_t * scallop)
-{
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-
-    // Select the top item and get the context
-    scallop_construct_t * construct = (scallop_construct_t *)
-        priv->constructs->last(priv->constructs);
-
-    if (!construct || !construct->routine_decl)
-    {
-        return 0;
-    }
-
-    // Iterate down through the stack until we find something that
-    // is different.
-    int scope = 0;
-    scallop_construct_t * routine_decl = construct->routine_decl;
-
-    while (construct)
-    {
-        construct = (scallop_construct_t *)
-                priv->constructs->prev(priv->constructs);
-        scope++;
-
-        if (construct && (construct->routine_decl != routine_decl))
-        {
-            return scope;
-        }
-    }
-
-    // Impossible?  Exhausted the stack and never found anything different.
-    BLAMMO(ERROR, "Start of routine declaration not found!");
-    return -1;
-}
-
-//------------------------------------------------------------------------|
 const scallop_t scallop_pub = {
     &scallop_create,
     &scallop_destroy,
@@ -1220,7 +1166,5 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
-    &scallop_construct_routine_decl,
-    &scallop_construct_routine_scope,
     NULL
 };
