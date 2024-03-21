@@ -1050,10 +1050,10 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         result = command->exec(command, argc, args);
 
         // always clear the dry run bit
-        if (command->is_dry_run(command))
-        {
-            command->clear_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
-        }
+//        if (command->is_dry_run(command))
+//        {
+//            command->clear_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
+//        }
     }
 
     linebytes->destroy(linebytes);

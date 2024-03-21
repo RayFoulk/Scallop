@@ -451,6 +451,12 @@ static int builtin_linefunc_routine(void * context,
     scallop_t * scallop = (scallop_t *) context;
     scallop_rtn_t * routine = (scallop_rtn_t *) object;
 
+    if (!routine)
+    {
+        BLAMMO(VERBOSE, "Dry-run routine linefunc");
+        return 0;
+    }
+
     // put the raw line as-is in the routine.  variable substitutions
     // and tokenization will occur later during routine execution.
     routine->append(routine, line);
@@ -466,6 +472,14 @@ static int builtin_popfunc_routine(void * context,
     scallop_t * scallop = (scallop_t *) context;
     scallop_rtn_t * routine = (scallop_rtn_t *) object;
     scallop_cmd_t * cmds = scallop->commands(scallop);
+
+    if (!routine)
+    {
+        BLAMMO(VERBOSE, "Dry-run routine popfunc");
+        return 0;
+    }
+
+
     bool success = true;
 
     // All done defining this routine.  Now register it as a
@@ -498,6 +512,7 @@ static int builtin_handler_routine(void * scmd,
 {
     BLAMMO(VERBOSE, "");
 
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
 
@@ -507,22 +522,35 @@ static int builtin_handler_routine(void * scmd,
         return -1;
     }
 
-    // Check if there is already a routine by the given name
-    scallop_rtn_t * routine = scallop->routine_by_name(scallop, args[1]);
-    if (routine)
-    {
-        console->error(console,
-                       "routine \'%s\' already exists",
-                       args[1]);
-        return -2;
-    }
+    scallop_rtn_t * routine = NULL;
+    const char * routine_name = NULL;
 
-    // Create a unique new routine object
-    routine = scallop->routine_insert(scallop, args[1]);
-    if (!routine)
+    // For dry run, do not create a routine object
+    if (cmd->is_dry_run(cmd))
     {
-        console->error(console, "create routine \'%s\' failed", args[1]);
-        return -3;
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+    }
+    else
+    {
+        // Check if there is already a routine by the given name
+        routine = scallop->routine_by_name(scallop, args[1]);
+        if (routine)
+        {
+            console->error(console,
+                           "routine \'%s\' already exists",
+                           args[1]);
+            return -2;
+        }
+
+        // Create a unique new routine object
+        routine = scallop->routine_insert(scallop, args[1]);
+        if (!routine)
+        {
+            console->error(console, "create routine \'%s\' failed", args[1]);
+            return -3;
+        }
+
+        routine_name = routine->name(routine);
     }
 
     // Push the new routine definition onto the language construct
@@ -531,7 +559,7 @@ static int builtin_handler_routine(void * scmd,
     // registered as a new command (with the ubiquitous routine handler)
     // Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-                            routine->name(routine),
+                            routine_name,
                             context,
                             routine,
                             builtin_linefunc_routine,
@@ -629,7 +657,11 @@ static int builtin_handler_while(void * scmd,
     scallop_while_t * whileloop = NULL;
 
     // For dry run, do not create a while loop object
-    if (!cmd->is_dry_run(cmd))
+    if (cmd->is_dry_run(cmd))
+    {
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+    }
+    else
     {
         whileloop = scallop_while_pub.create(args[1]);
         if (!whileloop)
@@ -645,11 +677,11 @@ static int builtin_handler_while(void * scmd,
     // in the base context, and NOT while in the middle of defining a
     // routine. Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-                            "while",   // TODO: Consider names for while
-                            context,
-                            whileloop,
-                            builtin_linefunc_while,
-                            builtin_popfunc_while);
+        "while",   // TODO: Consider names for while
+        context,
+        whileloop,
+        builtin_linefunc_while,
+        builtin_popfunc_while);
 
     return 0;
 }
