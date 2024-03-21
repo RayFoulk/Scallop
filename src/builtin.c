@@ -550,6 +550,12 @@ static int builtin_linefunc_while(void * context,
     scallop_t * scallop = (scallop_t *) context;
     scallop_while_t * whileloop = (scallop_while_t *) object;
 
+    if (!whileloop)
+    {
+        BLAMMO(VERBOSE, "Dry-run while loop linefunc");
+        return 0;
+    }
+
     // put the raw line as-is in the routine.  variable substitutions
     // and tokenization will occur later during while execution.
     whileloop->append(whileloop, line);
@@ -566,24 +572,32 @@ static int builtin_popfunc_while(void * context,
 
     scallop_t * scallop = (scallop_t *) context;
     scallop_while_t * whileloop = (scallop_while_t *) object;
+    scallop_cmd_t * cmds = scallop->commands(scallop);
 
     // NOTE: During definition of a routine containing a while loop,
     // this will have no lines to execute and the condition will exist
     // but cannot be evaluated due to substitution not having occurred.
+    if (!whileloop)
+    {
+        BLAMMO(VERBOSE, "Dry-run while loop popfunc");
+        return 0;
+    }
 
-    // TODO: For normal while loop in base context,
-    //  the loop should NOW be executed (call the whileloop->handler)
-    //  Then, when it is finished, destroy it.
-    // TODO: Consider: while loops are like immediate functions,
-    //  they don't take arguments (but could?!?!? that's weird)
+    // For normal while loop in base context, the loop should NOW be
+    // executed (call the whileloop->handler). Then, when it is finished,
+    // destroy it.
+    // Consider: while loops are like immediate ephemeral functions,
+    // that don't take argument (but could?!?!? that'd be weird)
 
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    // FIXME: API BREAKAGE - the actual while loop, once defined,
-    // is not a registered command to be looked up!!! but it needs
-    // to be run here.  Gotta think about this.
-    // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    // Create an ephemeral command to execute the while loop
+    scallop_cmd_t * whilecmd = cmds->create(whileloop->handler, scallop,
+                                            NULL, NULL, NULL);
 
-    int result = whileloop->handler(whileloop, context, 0, NULL);
+    // Run the ephemeral while loop command
+    int result = whilecmd->exec(whilecmd, 0, NULL);
+
+    // while command evaporates
+    whilecmd->destroy(whilecmd);
 
     // While loop evaporates
     whileloop->destroy(whileloop);
@@ -601,6 +615,7 @@ static int builtin_handler_while(void * scmd,
 {
     BLAMMO(VERBOSE, "");
 
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
 
@@ -611,11 +626,17 @@ static int builtin_handler_while(void * scmd,
     }
 
     // Create a while loop construct
-    scallop_while_t * whileloop = scallop_while_pub.create(args[1]);
-    if (!whileloop)
+    scallop_while_t * whileloop = NULL;
+
+    // For dry run, do not create a while loop object
+    if (!cmd->is_dry_run(cmd))
     {
-        console->error(console, "create while \'%s\' failed", args[1]);
-        return -2;
+        whileloop = scallop_while_pub.create(args[1]);
+        if (!whileloop)
+        {
+            console->error(console, "create while \'%s\' failed", args[1]);
+            return -2;
+        }
     }
 
     // Push the new while loop onto the language construct
@@ -624,11 +645,11 @@ static int builtin_handler_while(void * scmd,
     // in the base context, and NOT while in the middle of defining a
     // routine. Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-    "while",                            // TODO: Consider names for while
-    context,
-    whileloop,
-    builtin_linefunc_while,
-    builtin_popfunc_while);
+                            "while",   // TODO: Consider names for while
+                            context,
+                            whileloop,
+                            builtin_linefunc_while,
+                            builtin_popfunc_while);
 
     return 0;
 }

@@ -895,14 +895,6 @@ static int scallop_set_result(scallop_t * scallop, int result)
 //  linefunc.  Thus when we check routine scope it returns false positive.
 //  it's likely that for construct push and pop commands, it is necessary
 //  to call linefunc AND execute!!!
-//------------------------------------------------------------------------|
-//    if (construct && construct->linefunc && (
-//            // everything that falls within a routine declaration
-//            // should be added to the routine.
-//            (is_within_routine_decl && !is_end_of_declaration) ||
-//            // no routine declaration, just a regular command
-//            (!command->is_construct(command))
-//    ))
 static void scallop_dispatch(scallop_t * scallop, const char * line)
 {
     // Guard block NULL line ptr, or trivially empty line
@@ -968,8 +960,8 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     // The top item on the language construct stack is whatever is
     // currently within nested scope (ex: while, if/else, lambda, etc...)
     // but in most cases is only for keeping track of nesting level
-    scallop_construct_t * construct = (scallop_construct_t *)
-            priv->constructs->last(priv->constructs);
+//    scallop_construct_t * construct = (scallop_construct_t *)
+//            priv->constructs->last(priv->constructs);
 
     // The bottom item on the language stack is the most important
     // construct declaration that is actively being defined, rather
@@ -1025,7 +1017,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // UPDATE 3/14/2024 - suspend substitution when linefunc was called.
         // variables might not yet be defined!
         // ALSO: DO NOT EVER substitute for constructs.  This would
-        // cause breakage when executing (ex) while loops inside routine
+        // cause breakage when executing (ex:) while loops inside routine
         // because the expression gets prematurely evaluated.
         if (!call_linefunc && !command->is_construct(command) &&
                 !scallop_variable_substitution(scallop, linebytes))
@@ -1034,6 +1026,14 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
             priv->depth--;
             scallop_set_result(scallop, -4);
             return;
+        }
+
+        // When a construct command line is being added to a declaration
+        // (of another construct), it is only executed here to track
+        // nesting levels, so it's effectively a dry run.  mark it so.
+        if (call_linefunc && command->is_construct(command))
+        {
+            command->set_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
         }
 
         // Re-tokenize now that substitution has occurred.
@@ -1046,7 +1046,14 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
                                     scallop_cmd_comment,
                                     &argc);
 
+        // Execute the command: calls handler with command, context, and arguments
         result = command->exec(command, argc, args);
+
+        // always clear the dry run bit
+        if (command->is_dry_run(command))
+        {
+            command->clear_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
+        }
     }
 
     linebytes->destroy(linebytes);
@@ -1112,9 +1119,7 @@ static void scallop_construct_push(scallop_t * scallop,
 
     // Push the context onto the stack, treating the 'last' link as
     // the top of the stack.  New construct becomes the new 'last'
-    scallop_construct_t * last = (scallop_construct_t *)
-            priv->constructs->last(priv->constructs);
-
+    priv->constructs->last(priv->constructs);
     priv->constructs->insert(priv->constructs, construct);
 
     scallop_rebuild_prompt(scallop);

@@ -351,6 +351,14 @@ static void scallop_set_attributes(scallop_cmd_t * cmd,
 }
 
 //------------------------------------------------------------------------|
+static void scallop_clear_attributes(scallop_cmd_t * cmd,
+                                     scallop_cmd_attr_t attributes)
+{
+    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    priv->attributes &= ~attributes;
+}
+
+//------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_alias(scallop_cmd_t * cmd)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
@@ -377,6 +385,13 @@ static inline bool scallop_cmd_is_construct_pop(scallop_cmd_t * cmd)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
     return priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_POP;
+}
+
+//------------------------------------------------------------------------|
+static inline bool scallop_cmd_is_dry_run(scallop_cmd_t * cmd)
+{
+    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    return priv->attributes & SCALLOP_CMD_ATTR_DRY_RUN;
 }
 
 //------------------------------------------------------------------------|
@@ -669,10 +684,12 @@ const scallop_cmd_t scallop_cmd_pub = {
     &scallop_cmd_partial_matches,
     &scallop_cmd_exec,
     &scallop_set_attributes,
+    &scallop_clear_attributes,
     &scallop_cmd_is_alias,
     &scallop_cmd_is_mutable,
     &scallop_cmd_is_construct,
     &scallop_cmd_is_construct_pop,
+    &scallop_cmd_is_dry_run,
     &scallop_cmd_keyword,
     &scallop_cmd_arghints,
     &scallop_cmd_description,
