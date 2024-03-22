@@ -151,40 +151,27 @@ static int scallop_while_handler(void * scmd,
                                  int argc,
                                  char ** args)
 {
-    // The command handler function for every whileloop once registered.
-    // perform substitutions on lines/args,
-    // and iterate through the lines calling dispatch on each one
-    // until running out and then return.
-    // args[0] happens to be the name of the whileloop,
-    // But it is more reliably also cmd->name.
-    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
+    //scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
 
-    // FIXME: WHILE LOOP WILL BE IN SCALLOP CONSTRUCT STACK.
-    // Find _this_ whileloop.  TODO: Is there a faster way to
-    // find/get the whileloop associated with the command we're
-    // executing?  seems like there should be.  revisit this later.
-    //scallop_while_t * whileloop = scallop->whileloop_by_name(scallop,
-    //                                                   cmd->keyword(cmd));
-
-    scallop_while_t * whileloop = NULL;
+    // This is slightly convoluted, but since we know that
+    // while loops execute on construct pop, we know that the
+    // while loop object lives in the stack and is the top item
+    scallop_while_t * whileloop = (scallop_while_t *)
+        scallop->construct_object(scallop);
 
     if (!whileloop)
     {
         console->error(console,
-                       "while loop \'%s\' not found",
-                       cmd->keyword(cmd));
+                       "construct stack object was NULL");
         return -1;
     }
-
-    // Store subwhileloop arguments in scallop's variable
-    // collection so dispatch can perform substitution.
-    //scallop->store_args(scallop, argc, args);
 
     scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
     bytes_t * linebytes = NULL;
 
+    // FIXME: NEED TO SUBSTITUTE & EVALUATE CONDITION EACH ITERATION HERE
     // Iterate through all lines and dispatch each
     priv->lines->reset(priv->lines);
     do

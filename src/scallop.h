@@ -115,6 +115,9 @@ typedef struct scallop_t
     // Pop a context name off the top of the context stack
     int (*construct_pop)(struct scallop_t * scallop);
 
+    // Get the object within the top of the construct stack
+    void * (*construct_object)(struct scallop_t * scallop);
+
     // Private data
     void * priv;
 }

@@ -621,6 +621,11 @@ static int builtin_popfunc_while(void * context,
     scallop_cmd_t * whilecmd = cmds->create(whileloop->handler, scallop,
                                             NULL, NULL, NULL);
 
+    // FIXME: Consider new create_ephemeral() with passed object
+    //  Also need to pop first and THEN call popfunc so dispatch()
+    //  Does not get confused.  This is not a problem for routines,
+    //  because they DO pop fully before being called separately!!!
+
     // Run the ephemeral while loop command
     int result = whilecmd->exec(whilecmd, 0, NULL);
 

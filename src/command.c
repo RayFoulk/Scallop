@@ -343,7 +343,7 @@ static inline int scallop_cmd_exec(scallop_cmd_t * cmd,
 }
 
 //------------------------------------------------------------------------|
-static void scallop_set_attributes(scallop_cmd_t * cmd,
+static void scallop_cmd_set_attributes(scallop_cmd_t * cmd,
                                    scallop_cmd_attr_t attributes)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
@@ -351,7 +351,7 @@ static void scallop_set_attributes(scallop_cmd_t * cmd,
 }
 
 //------------------------------------------------------------------------|
-static void scallop_clear_attributes(scallop_cmd_t * cmd,
+static void scallop_cmd_clear_attributes(scallop_cmd_t * cmd,
                                      scallop_cmd_attr_t attributes)
 {
     scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
@@ -683,8 +683,8 @@ const scallop_cmd_t scallop_cmd_pub = {
     &scallop_cmd_find_by_keyword,
     &scallop_cmd_partial_matches,
     &scallop_cmd_exec,
-    &scallop_set_attributes,
-    &scallop_clear_attributes,
+    &scallop_cmd_set_attributes,
+    &scallop_cmd_clear_attributes,
     &scallop_cmd_is_alias,
     &scallop_cmd_is_mutable,
     &scallop_cmd_is_construct,

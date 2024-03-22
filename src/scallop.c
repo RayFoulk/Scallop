@@ -128,7 +128,7 @@ scallop_priv_t;
 // Private data structure for context stack.  All data members must be
 // unmanaged by this struct, but point elsewhere to data that persists
 // for the lifetime of the context.
-typedef struct scallop_construct_t
+typedef struct
 {
     // Name of this language construct
     char * name;
@@ -1048,12 +1048,8 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         // Execute the command: calls handler with command, context, and arguments
         result = command->exec(command, argc, args);
-
-        // always clear the dry run bit
-//        if (command->is_dry_run(command))
-//        {
-//            command->clear_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
-//        }
+        // It is the responsibility of the command handler to
+        // clear the dry run bit if it should
     }
 
     linebytes->destroy(linebytes);
@@ -1156,6 +1152,21 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
+static void * scallop_construct_object(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    scallop_construct_t * construct = (scallop_construct_t *)
+            priv->constructs->last(priv->constructs);
+
+    if (construct)
+    {
+        return construct->object;
+    }
+
+    return NULL;
+}
+
+//------------------------------------------------------------------------|
 const scallop_t scallop_pub = {
     &scallop_create,
     &scallop_destroy,
@@ -1171,5 +1182,6 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
+    &scallop_construct_object,
     NULL
 };
