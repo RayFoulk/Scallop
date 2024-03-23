@@ -768,13 +768,18 @@ static void scallop_assign_variable(scallop_t * scallop,
 }
 
 //------------------------------------------------------------------------|
-// Private helper function to perform variable substitution
-static bool scallop_variable_substitution(scallop_t * scallop,
-                                          bytes_t * linebytes)
+// Function to perform variable substitution.  Until 'while' and 'if/else'
+// were introduced, this was private.  Those need to be evaluated under
+// different circumstances however, so this had to be exported.
+static bool scallop_substitute_variables(scallop_t * scallop,
+                                         void * linebytes_ptr)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    bytes_t * linebytes = (bytes_t *) linebytes_ptr;
+
     ssize_t offset_begin = 0;
     ssize_t offset_end = 0;
+
     bytes_t * varname = bytes_pub.create(NULL, 0);
     bytes_t * varvalue = NULL;
 
@@ -883,18 +888,7 @@ static int scallop_set_result(scallop_t * scallop, int result)
 // call that construct's line handler function rather
 // than executing the line directly. AND if and only
 // if the command itself is not a construct keyword.
-// TODO: For constructs like "if/else" and "while" these should be
-//  subject to the routine they're under.  Need to find the next
-//  routine down on the construct stack, and keep adding lines to that
-//  which will all get executed in the routine call.  The logic here
-//  needs to be fixed somehow to check if we're still in a routine
-//  definition.
 // TODO: TEST THIS WITH NESTED ROUTINE DEFINITIONS
-// FIXME: THIS DOES NOT WORK -- The while inside the routine does not
-//  ever push to the construct stack since it gets added to the routine
-//  linefunc.  Thus when we check routine scope it returns false positive.
-//  it's likely that for construct push and pop commands, it is necessary
-//  to call linefunc AND execute!!!
 static void scallop_dispatch(scallop_t * scallop, const char * line)
 {
     // Guard block NULL line ptr, or trivially empty line
@@ -1020,7 +1014,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // cause breakage when executing (ex:) while loops inside routine
         // because the expression gets prematurely evaluated.
         if (!call_linefunc && !command->is_construct(command) &&
-                !scallop_variable_substitution(scallop, linebytes))
+                !scallop->substitute_variables(scallop, linebytes))
         {
             linebytes->destroy(linebytes);
             priv->depth--;
@@ -1137,33 +1131,29 @@ static int scallop_construct_pop(scallop_t * scallop)
     scallop_construct_t * construct = (scallop_construct_t *)
         priv->constructs->last(priv->constructs);
 
+    // Make a stack copy of the top construct, because we're about to
+    // destroy the heap container.  Everything within the container is
+    // still valid since constructs don't own any of it.
+    scallop_construct_t copy;
+    memcpy(&copy, construct, sizeof(scallop_construct_t));
+
+    // Remove item from the stack, moving all other links back.
+    // This MUST occur before calling the popfunc so that dispatch
+    // doesn't get confused about the declaration versus execution.
+    // Routines don't have this problem because they aren't executed
+    // until well after popping, but ephemeral constructs may execute
+    // upon being popped.
+    priv->constructs->remove(priv->constructs);
+
     // Call the pop function if one is provided
     int result = 0;
-    if (construct && construct->popfunc)
+    if (copy.popfunc)
     {
-        result = construct->popfunc(construct->context, construct->object);
+        result = copy.popfunc(copy.context, copy.object);
     }
-
-    // Remove item from the stack, moving all other links back
-    priv->constructs->remove(priv->constructs);
 
     scallop_rebuild_prompt(scallop);
     return result;
-}
-
-//------------------------------------------------------------------------|
-static void * scallop_construct_object(scallop_t * scallop)
-{
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-    scallop_construct_t * construct = (scallop_construct_t *)
-            priv->constructs->last(priv->constructs);
-
-    if (construct)
-    {
-        return construct->object;
-    }
-
-    return NULL;
 }
 
 //------------------------------------------------------------------------|
@@ -1177,11 +1167,11 @@ const scallop_t scallop_pub = {
     &scallop_routine_remove,
     &scallop_store_args,
     &scallop_assign_variable,
+    &scallop_substitute_variables,
     &scallop_dispatch,
     &scallop_loop,
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
-    &scallop_construct_object,
     NULL
 };

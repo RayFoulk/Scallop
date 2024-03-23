@@ -510,8 +510,6 @@ static int builtin_handler_routine(void * scmd,
                                    int argc,
                                    char ** args)
 {
-    BLAMMO(VERBOSE, "");
-
     scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
@@ -593,14 +591,14 @@ static int builtin_linefunc_while(void * context,
 }
 
 //------------------------------------------------------------------------|
+// One approach considered was to create a special unregistered and
+// ephemeral command type, containing an object pointer, but this
+// approach is probably overly complicated when we have the object
+// right here as called from construct_pop.
 static int builtin_popfunc_while(void * context,
                                  void * object)
 {
-    BLAMMO(VERBOSE, "");
-
-    scallop_t * scallop = (scallop_t *) context;
     scallop_while_t * whileloop = (scallop_while_t *) object;
-    scallop_cmd_t * cmds = scallop->commands(scallop);
 
     // NOTE: During definition of a routine containing a while loop,
     // this will have no lines to execute and the condition will exist
@@ -613,24 +611,9 @@ static int builtin_popfunc_while(void * context,
 
     // For normal while loop in base context, the loop should NOW be
     // executed (call the whileloop->handler). Then, when it is finished,
-    // destroy it.
-    // Consider: while loops are like immediate ephemeral functions,
-    // that don't take argument (but could?!?!? that'd be weird)
-
-    // Create an ephemeral command to execute the while loop
-    scallop_cmd_t * whilecmd = cmds->create(whileloop->handler, scallop,
-                                            NULL, NULL, NULL);
-
-    // FIXME: Consider new create_ephemeral() with passed object
-    //  Also need to pop first and THEN call popfunc so dispatch()
-    //  Does not get confused.  This is not a problem for routines,
-    //  because they DO pop fully before being called separately!!!
-
-    // Run the ephemeral while loop command
-    int result = whilecmd->exec(whilecmd, 0, NULL);
-
-    // while command evaporates
-    whilecmd->destroy(whilecmd);
+    // destroy it.  While loops are like immediate ephemeral functions,
+    // that don't take arguments.
+    int result = whileloop->runner(whileloop, context);
 
     // While loop evaporates
     whileloop->destroy(whileloop);

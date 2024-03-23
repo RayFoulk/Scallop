@@ -94,6 +94,11 @@ typedef struct scallop_t
                             const char * varname,
                             const char * varvalue);
 
+    // Substitute all variable references in string with literal values
+    // linebytes is expected to be a bytes_t *, but void avoids the header
+    bool (*substitute_variables)(struct scallop_t * scallop,
+                                 void * linebytes);
+
     // Handle a raw line of input, calling whatever
     // handler functions are necessary.
     void (*dispatch)(struct scallop_t * scallop, const char * line);
@@ -114,9 +119,6 @@ typedef struct scallop_t
 
     // Pop a context name off the top of the context stack
     int (*construct_pop)(struct scallop_t * scallop);
-
-    // Get the object within the top of the construct stack
-    void * (*construct_object)(struct scallop_t * scallop);
 
     // Private data
     void * priv;

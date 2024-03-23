@@ -46,8 +46,8 @@ typedef struct scallop_while_t
     // Append a line to the while loop
     void (*append)(struct scallop_while_t * whileloop, const char * line);
 
-    // Execute the while loop ((with arguments???))
-    int (*handler)(void * scmd, void * context, int argc, char ** args);
+    // Run the while loop
+    int (*runner)(struct scallop_while_t * whileloop, void * context);
 
     // Private data
     void * priv;
