@@ -41,6 +41,7 @@
 #include "command.h"
 #include "builtin.h"
 #include "routine.h"
+#include "parser.h"
 
 //------------------------------------------------------------------------|
 // Various constants that define the syntax/dialect/behavior of scallop's
@@ -768,18 +769,13 @@ static void scallop_assign_variable(scallop_t * scallop,
 }
 
 //------------------------------------------------------------------------|
-// Function to perform variable substitution.  Until 'while' and 'if/else'
-// were introduced, this was private.  Those need to be evaluated under
-// different circumstances however, so this had to be exported.
+// Substitute all variable references in string with literal values
 static bool scallop_substitute_variables(scallop_t * scallop,
-                                         void * linebytes_ptr)
+                                         bytes_t * linebytes)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-    bytes_t * linebytes = (bytes_t *) linebytes_ptr;
-
     ssize_t offset_begin = 0;
     ssize_t offset_end = 0;
-
     bytes_t * varname = bytes_pub.create(NULL, 0);
     bytes_t * varvalue = NULL;
 
@@ -865,6 +861,58 @@ static int scallop_set_result(scallop_t * scallop, int result)
 
     varname->destroy(varname);
 
+    return result;
+}
+
+//------------------------------------------------------------------------|
+static long scallop_evaluate_condition(scallop_t * scallop,
+                                       const char * condition,
+                                       size_t size)
+{
+    console_t * console = scallop->console(scallop);
+
+    // Make a fresh copy of the raw condition string every call
+    bytes_t * copy = bytes_pub.create(condition, size);
+    long result = 0;
+
+
+    // Perform substitution with latest values
+    if (!scallop_substitute_variables(scallop, copy))
+    {
+        console->error(console,
+                       "variable substitution failed");
+        copy->destroy(copy);
+
+        // TODO: MAKE A MACRO, SIMILAR TO BLAMMO, THAT GENERATES A
+        // RESULT NUMBER AUTOMATICALLY BASED ON FILE/LINE.  AND THAT IS
+        // REVERSIBLE AND INTUITIVE -- HAVE DONE THIS BEFORE SOMEWHERE.
+        scallop_set_result(scallop, -1);
+        return 0;
+    }
+
+    // Check if the condition is an expression
+    if (!sparser_is_expr(copy->cstr(copy)))
+    {
+        console->error(console,
+                       "condition \'%s\' is not an expression",
+                       copy->cstr(copy));
+        copy->destroy(copy);
+        scallop_set_result(scallop, -2);
+        return 0;
+    }
+
+    // Check if the expression is valid
+    result = sparser_evaluate(console->error, console, copy->cstr(copy));
+    if (result == SPARSER_INVALID_EXPRESSION)
+    {
+        console->error(console,
+                       "condition \'%s\' is an invalid expression",
+                       copy->cstr(copy));
+        scallop_set_result(scallop, -3);
+        return 0;
+    }
+
+    copy->destroy(copy);
     return result;
 }
 
@@ -1014,7 +1062,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // cause breakage when executing (ex:) while loops inside routine
         // because the expression gets prematurely evaluated.
         if (!call_linefunc && !command->is_construct(command) &&
-                !scallop->substitute_variables(scallop, linebytes))
+                !scallop_substitute_variables(scallop, linebytes))
         {
             linebytes->destroy(linebytes);
             priv->depth--;
@@ -1052,7 +1100,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 }
 
 //------------------------------------------------------------------------|
-static int scallop_loop(scallop_t * scallop, bool interactive)
+static int scallop_run_console(scallop_t * scallop, bool interactive)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
     char * line = NULL;
@@ -1073,6 +1121,28 @@ static int scallop_loop(scallop_t * scallop, bool interactive)
         scallop->dispatch(scallop, line);
         free(line);
         line = NULL;
+    }
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int scallop_run_lines(scallop_t * scallop, void * lines_ptr)
+{
+    chain_t * lines = (chain_t *) lines_ptr;
+    bytes_t * line = (bytes_t *) lines->first(lines);
+
+    // Iterate through all lines and dispatch each
+    while (line)
+    {
+        BLAMMO(DEBUG, "About to dispatch(\'%s\')",
+                      line->cstr(line));
+
+        // Dispatch (run) the line
+        scallop->dispatch(scallop, (char *) line->cstr(line));
+
+        // Get next line
+        line = (bytes_t *) lines->next(lines);
     }
 
     return 0;
@@ -1167,9 +1237,10 @@ const scallop_t scallop_pub = {
     &scallop_routine_remove,
     &scallop_store_args,
     &scallop_assign_variable,
-    &scallop_substitute_variables,
+    &scallop_evaluate_condition,
     &scallop_dispatch,
-    &scallop_loop,
+    &scallop_run_console,
+    &scallop_run_lines,
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,

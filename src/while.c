@@ -38,7 +38,7 @@
 #include "scallop.h"
 #include "command.h"
 #include "while.h"
-#include "parser.h"
+//#include "parser.h"
 
 //------------------------------------------------------------------------|
 typedef struct
@@ -152,78 +152,18 @@ static int scallop_while_runner(scallop_while_t * whileloop,
 {
     scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
     scallop_t * scallop = (scallop_t *) context;
-    console_t * console = scallop->console(scallop);
-    bytes_t * linebytes = NULL;
-    bytes_t * condition = NULL;
-    long result = 0;
+    int result = 0;
 
     // Need to perform substitution and evaluation on each iteration
-    // Iterate through all lines and dispatch each
-    while (true)
+    while (scallop->evaluate_condition(scallop,
+                                       priv->condition->cstr(priv->condition),
+                                       priv->condition->size(priv->condition)))
     {
-        // Make a fresh copy of the raw condition string every iteration
-        condition = (bytes_t *) priv->condition->copy(priv->condition);
-
-        // Perform substitution with latest values
-        if (!scallop->substitute_variables(scallop, condition))
-        {
-            console->error(console,
-                           "variable substitution failed");
-            condition->destroy(condition);
-            return -1;
-
-        }
-
-        // Check if the condition is an expression
-        if (!sparser_is_expr(condition->cstr(condition)))
-        {
-            console->error(console,
-                           "condition \'%s\' is not an expression",
-                           condition->cstr(condition));
-            condition->destroy(condition);
-            return -2;
-        }
-
-        // Check if the expression is valid
-        result = sparser_evaluate(console->error, console, condition->cstr(condition));
-        if (result == SPARSER_INVALID_EXPRESSION)
-        {
-            console->error(console,
-                           "condition \'%s\' is an invalid expression",
-                           condition->cstr(condition));
-            condition->destroy(condition);
-            return -3;
-        }
-
-        // Break out of the loop when the result is zero
-        if (!result)
-        {
-            BLAMMO(VERBOSE, "while loop exiting normally");
-            condition->destroy(condition);
-            break;
-        }
-
-        // Now iterate through all lines in the while loop
-        priv->lines->reset(priv->lines);
-        do
-        {
-            linebytes = (bytes_t *) priv->lines->data(priv->lines);
-            if (linebytes)
-            {
-                BLAMMO(DEBUG, "About to dispatch(\'%s\')",
-                              linebytes->cstr(linebytes));
-
-                scallop->dispatch(scallop, (char *)
-                                  linebytes->cstr(linebytes));
-            }
-        }
-        while(priv->lines->spin(priv->lines, 1));
-
-        // Don't keep making new copies without cleaning up
-        condition->destroy(condition);
+        // Iterate through all lines and dispatch each
+        result = scallop->run_lines(scallop, priv->lines);
     }
 
-    return 0;
+    return result;
 }
 
 //------------------------------------------------------------------------|

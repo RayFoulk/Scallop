@@ -94,17 +94,23 @@ typedef struct scallop_t
                             const char * varname,
                             const char * varvalue);
 
-    // Substitute all variable references in string with literal values
-    // linebytes is expected to be a bytes_t *, but void avoids the header
-    bool (*substitute_variables)(struct scallop_t * scallop,
-                                 void * linebytes);
+    // Evaluate a conditional expression, including variable references,
+    // as with a while loop or if-else construct.
+    // ex: "while ({i} < 3)" or "if (x == 5)"
+    long (*evaluate_condition)(struct scallop_t * scallop,
+                               const char * condition,
+                               size_t size);
 
     // Handle a raw line of input, calling whatever
     // handler functions are necessary.
     void (*dispatch)(struct scallop_t * scallop, const char * line);
 
-    // Main interactive prompt loop
-    int (*loop)(struct scallop_t * scallop, bool interactive);
+    // Main interactive prompt loop: for console or source file
+    int (*run_console)(struct scallop_t * scallop, bool interactive);
+
+    // Run a given set of lines (must be a chain_t * type) as from
+    // a routine or part of a while loop or if-else statement.
+    int (*run_lines)(struct scallop_t * scallop, void * lines);
 
     // Explicitly quit the main loop
     void (*quit)(struct scallop_t * scallop);

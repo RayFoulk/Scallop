@@ -433,7 +433,7 @@ static int builtin_handler_source(void * scmd,
     console->set_inputf(console, source);
 
     // Now get an dispatch commands from the script until EOF
-    int result = scallop->loop(scallop, false);
+    int result = scallop->run_console(scallop, false);
 
     // Put console back to original state
     console->set_inputf(console, input);
@@ -453,7 +453,7 @@ static int builtin_linefunc_routine(void * context,
 
     if (!routine)
     {
-        BLAMMO(VERBOSE, "Dry-run routine linefunc");
+        BLAMMO(VERBOSE, "dry run routine linefunc");
         return 0;
     }
 
@@ -475,7 +475,7 @@ static int builtin_popfunc_routine(void * context,
 
     if (!routine)
     {
-        BLAMMO(VERBOSE, "Dry-run routine popfunc");
+        BLAMMO(VERBOSE, "dry run routine popfunc");
         return 0;
     }
 
@@ -578,7 +578,7 @@ static int builtin_linefunc_while(void * context,
 
     if (!whileloop)
     {
-        BLAMMO(VERBOSE, "Dry-run while loop linefunc");
+        BLAMMO(VERBOSE, "dry run while loop linefunc");
         return 0;
     }
 
@@ -605,7 +605,7 @@ static int builtin_popfunc_while(void * context,
     // but cannot be evaluated due to substitution not having occurred.
     if (!whileloop)
     {
-        BLAMMO(VERBOSE, "Dry-run while loop popfunc");
+        BLAMMO(VERBOSE, "dry run while loop popfunc");
         return 0;
     }
 
@@ -665,7 +665,7 @@ static int builtin_handler_while(void * scmd,
     // in the base context, and NOT while in the middle of defining a
     // routine. Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-        "while",   // TODO: Consider names for while
+        "while",                // TODO: Consider names for while???
         context,
         whileloop,
         builtin_linefunc_while,

@@ -209,5 +209,5 @@ void usage(const char * name, const char * opts)
 int prompt()
 {
     // enter interactive prompt
-    return app->scallop->loop(app->scallop, true);
+    return app->scallop->run_console(app->scallop, true);
 }
