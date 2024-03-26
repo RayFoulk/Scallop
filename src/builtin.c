@@ -32,6 +32,7 @@
 #include "scallop.h"
 #include "command.h"
 #include "routine.h"
+#include "while.h"
 #include "parser.h"
 #include "builtin.h"
 
@@ -423,12 +424,16 @@ static int builtin_handler_source(void * scmd,
         return -2;
     }
 
+    // Store script arguments in scallop's variable
+    // collection so dispatch can perform substitution.
+    scallop->store_args(scallop, argc, args);
+
     // Stash the current console input source & swap to source file
     FILE * input = console->get_inputf(console);
     console->set_inputf(console, source);
 
     // Now get an dispatch commands from the script until EOF
-    int result = scallop->loop(scallop, false);
+    int result = scallop->run_console(scallop, false);
 
     // Put console back to original state
     console->set_inputf(console, input);
@@ -446,6 +451,12 @@ static int builtin_linefunc_routine(void * context,
     scallop_t * scallop = (scallop_t *) context;
     scallop_rtn_t * routine = (scallop_rtn_t *) object;
 
+    if (!routine)
+    {
+        BLAMMO(VERBOSE, "dry run routine linefunc");
+        return 0;
+    }
+
     // put the raw line as-is in the routine.  variable substitutions
     // and tokenization will occur later during routine execution.
     routine->append(routine, line);
@@ -461,6 +472,14 @@ static int builtin_popfunc_routine(void * context,
     scallop_t * scallop = (scallop_t *) context;
     scallop_rtn_t * routine = (scallop_rtn_t *) object;
     scallop_cmd_t * cmds = scallop->commands(scallop);
+
+    if (!routine)
+    {
+        BLAMMO(VERBOSE, "dry run routine popfunc");
+        return 0;
+    }
+
+
     bool success = true;
 
     // All done defining this routine.  Now register it as a
@@ -491,8 +510,7 @@ static int builtin_handler_routine(void * scmd,
                                    int argc,
                                    char ** args)
 {
-    BLAMMO(VERBOSE, "");
-
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
 
@@ -502,22 +520,35 @@ static int builtin_handler_routine(void * scmd,
         return -1;
     }
 
-    // Check if there is already a routine by the given name
-    scallop_rtn_t * routine = scallop->routine_by_name(scallop, args[1]);
-    if (routine)
-    {
-        console->error(console,
-                       "routine \'%s\' already exists",
-                       args[1]);
-        return -2;
-    }
+    scallop_rtn_t * routine = NULL;
+    const char * routine_name = NULL;
 
-    // Create a unique new routine object
-    routine = scallop->routine_insert(scallop, args[1]);
-    if (!routine)
+    // For dry run, do not create a routine object
+    if (cmd->is_dry_run(cmd))
     {
-        console->error(console, "create routine \'%s\' failed", args[1]);
-        return -3;
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+    }
+    else
+    {
+        // Check if there is already a routine by the given name
+        routine = scallop->routine_by_name(scallop, args[1]);
+        if (routine)
+        {
+            console->error(console,
+                           "routine \'%s\' already exists",
+                           args[1]);
+            return -2;
+        }
+
+        // Create a unique new routine object
+        routine = scallop->routine_insert(scallop, args[1]);
+        if (!routine)
+        {
+            console->error(console, "create routine \'%s\' failed", args[1]);
+            return -3;
+        }
+
+        routine_name = routine->name(routine);
     }
 
     // Push the new routine definition onto the language construct
@@ -526,11 +557,119 @@ static int builtin_handler_routine(void * scmd,
     // registered as a new command (with the ubiquitous routine handler)
     // Until then, incoming lines will be added to the construct.
     scallop->construct_push(scallop,
-                            routine->name(routine),
+                            routine_name,
                             context,
                             routine,
                             builtin_linefunc_routine,
                             builtin_popfunc_routine);
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_linefunc_while(void * context,
+                                  void * object,
+                                  const char * line)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_t * scallop = (scallop_t *) context;
+    scallop_while_t * whileloop = (scallop_while_t *) object;
+
+    if (!whileloop)
+    {
+        BLAMMO(VERBOSE, "dry run while loop linefunc");
+        return 0;
+    }
+
+    // put the raw line as-is in the routine.  variable substitutions
+    // and tokenization will occur later during while execution.
+    whileloop->append(whileloop, line);
+    (void) scallop;
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+// One approach considered was to create a special unregistered and
+// ephemeral command type, containing an object pointer, but this
+// approach is probably overly complicated when we have the object
+// right here as called from construct_pop.
+static int builtin_popfunc_while(void * context,
+                                 void * object)
+{
+    scallop_while_t * whileloop = (scallop_while_t *) object;
+
+    // NOTE: During definition of a routine containing a while loop,
+    // this will have no lines to execute and the condition will exist
+    // but cannot be evaluated due to substitution not having occurred.
+    if (!whileloop)
+    {
+        BLAMMO(VERBOSE, "dry run while loop popfunc");
+        return 0;
+    }
+
+    // For normal while loop in base context, the loop should NOW be
+    // executed (call the whileloop->handler). Then, when it is finished,
+    // destroy it.  While loops are like immediate ephemeral functions,
+    // that don't take arguments.
+    int result = whileloop->runner(whileloop, context);
+
+    // While loop evaporates
+    whileloop->destroy(whileloop);
+
+    return result;
+}
+
+//------------------------------------------------------------------------|
+// while loops are shorter-lived constructs than routines.  They only
+// live inside the construct stack and evaporate when out of scope.
+static int builtin_handler_while(void * scmd,
+                                 void * context,
+                                 int argc,
+                                 char ** args)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a conditional expression");
+        return -1;
+    }
+
+    // Create a while loop construct
+    scallop_while_t * whileloop = NULL;
+
+    // For dry run, do not create a while loop object
+    if (cmd->is_dry_run(cmd))
+    {
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+    }
+    else
+    {
+        whileloop = scallop_while_pub.create(args[1]);
+        if (!whileloop)
+        {
+            console->error(console, "create while \'%s\' failed", args[1]);
+            return -2;
+        }
+    }
+
+    // Push the new while loop onto the language construct
+    // stack.  This should get popped off when the matching 'end'
+    // statement is reached, and at THAT point it should execute ONLY IF
+    // in the base context, and NOT while in the middle of defining a
+    // routine. Until then, incoming lines will be added to the construct.
+    scallop->construct_push(scallop,
+        "while",                // TODO: Consider names for while???
+        context,
+        whileloop,
+        builtin_linefunc_while,
+        builtin_popfunc_while);
 
     return 0;
 }
@@ -651,7 +790,16 @@ bool register_builtin_commands(void * scallop_ptr)
         "routine",
         " <routine-name> ...",
         "define and register a new routine");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
+    success &= cmds->register_cmd(cmds, cmd);
+
+    cmd = cmds->create(
+        builtin_handler_while,
+        scallop,
+        "while",
+        " (expression)",
+        "declare a while-loop construct");
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
     cmd = cmds->create(
@@ -660,7 +808,7 @@ bool register_builtin_commands(void * scallop_ptr)
         "end",
         NULL,
         "finalize a multi-line language construct");
-    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT);
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_POP);
     success &= cmds->register_cmd(cmds, cmd);
 
     success &= cmds->register_cmd(cmds, cmds->create(

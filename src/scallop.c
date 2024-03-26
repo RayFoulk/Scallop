@@ -41,6 +41,7 @@
 #include "command.h"
 #include "builtin.h"
 #include "routine.h"
+#include "parser.h"
 
 //------------------------------------------------------------------------|
 // Various constants that define the syntax/dialect/behavior of scallop's
@@ -76,6 +77,7 @@ static const char * scallop_var_result = "?";       // "{%?}"
 static const char * scallop_encaps_pairs[] = {
     "\"\"",     // "quoted strings"
     "()",       // (parenthetical expressions)
+    "{}",       // {variable reference}
     NULL
 };
 
@@ -108,6 +110,10 @@ typedef struct
     // Current prompt text buffer, rebuilt whenever context changes.
     bytes_t * prompt;
 
+    // Keep track of prompt base independently, rather than
+    // pushing it into the construct stack.
+    const char * prompt_base;
+
     // Root of the command-tree
     scallop_cmd_t * commands;
 
@@ -138,6 +144,14 @@ typedef struct
     // 'routine' instance, or a 'while loop' instance or some other
     // added-on language construct.
     void * object;
+
+    // The pointer to the routine construct for which this construct is
+    // a part.  For the initial 'routine' keyword this will be self-
+    // referential.  By default it should be NULL for all constructs
+    // that are being executed and not as part of the definition on a
+    // new routine.  routines are basically like a script that has
+    // to be 'written' and this helps to track 'line-adding mode'.
+    //struct scallop_construct_t * routine_decl;
 
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
@@ -242,10 +256,9 @@ static void scallop_tab_completion(void * object, const char * buffer)
     // tab-completed argument in place and then feed the whole thing
     // back to console.  Just re-use the existing declared variables.
     // Basically strdup() manually, but allow some extra room for tab completed
-    // keyword.  Maybe can use strndup() with a big n instead???
+    // keyword.  Maybe could use strndup() with a big n instead??? -- nah
     linebytes = bytes_pub.create(buffer, strlen(buffer));
     linebytes->resize(linebytes, linebytes->size(linebytes) + longest);
-
 
     // get markers within unmodified copy of line
     args = linebytes->tokenizer(linebytes,
@@ -400,6 +413,54 @@ static char * scallop_arg_hints(void * object,
 }
 
 //------------------------------------------------------------------------|
+// Private prompt rebuild function on context push/pop
+static void scallop_rebuild_prompt(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    scallop_construct_t * construct = NULL;
+
+    priv->prompt->resize(priv->prompt, 0);
+
+    // Start with prompt base
+    priv->prompt->assign(priv->prompt,
+                         priv->prompt_base,
+                         strlen(priv->prompt_base));
+
+    // Continue from the bottom of the stack (first) and work towards the top
+    construct = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
+    while (construct)
+    {
+        if (!construct->name)
+        {
+
+            priv->console->error(priv->console,
+                                 "NULL name for construct %p",
+                                 construct);
+            break;
+        }
+
+        // put a visual/syntactical delimiter between
+        // constructs shown within the prompt.
+        priv->prompt->append(priv->prompt,
+                             scallop_prompt_delim,
+                             strlen(scallop_prompt_delim));
+
+        priv->prompt->append(priv->prompt,
+                             construct->name,
+                             strlen(construct->name));
+
+        construct = (scallop_construct_t *)
+                priv->constructs->next(priv->constructs);
+
+    }
+
+    priv->prompt->append(priv->prompt,
+                         scallop_prompt_finale,
+                         strlen(scallop_prompt_finale));
+}
+
+//------------------------------------------------------------------------|
 static scallop_t * scallop_create(console_t * console,
                                   scallop_registration_f registration,
                                   const char * prompt_base)
@@ -465,9 +526,10 @@ static scallop_t * scallop_create(console_t * console,
         return NULL;
     }
 
-    // Initialize prompt, push prompt_base as initial 'construct'
+    // Initialize prompt, save the prompt base, build initial prompt
     priv->prompt = bytes_pub.create(NULL, 0);
-    scallop->construct_push(scallop, prompt_base, NULL, NULL, NULL, NULL);
+    priv->prompt_base = prompt_base;
+    scallop_rebuild_prompt(scallop);
 
     // Create the top-level list of commands
     priv->commands = scallop_cmd_pub.create(NULL, NULL, NULL, NULL, NULL);
@@ -707,9 +769,9 @@ static void scallop_assign_variable(scallop_t * scallop,
 }
 
 //------------------------------------------------------------------------|
-// Private helper function to perform variable substitution
-static bool scallop_variable_substitution(scallop_t * scallop,
-                                          bytes_t * linebytes)
+// Substitute all variable references in string with literal values
+static bool scallop_substitute_variables(scallop_t * scallop,
+                                         bytes_t * linebytes)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
     ssize_t offset_begin = 0;
@@ -718,7 +780,7 @@ static bool scallop_variable_substitution(scallop_t * scallop,
     bytes_t * varvalue = NULL;
 
     // work through the entire raw line, replacing variable references
-    // "[variable_name]" with the string value of each variable.
+    // "{variable_name}" with the string value of each variable.
     while (offset_begin >= 0)
     {
         offset_begin = linebytes->find_forward(linebytes,
@@ -803,6 +865,58 @@ static int scallop_set_result(scallop_t * scallop, int result)
 }
 
 //------------------------------------------------------------------------|
+static long scallop_evaluate_condition(scallop_t * scallop,
+                                       const char * condition,
+                                       size_t size)
+{
+    console_t * console = scallop->console(scallop);
+
+    // Make a fresh copy of the raw condition string every call
+    bytes_t * copy = bytes_pub.create(condition, size);
+    long result = 0;
+
+
+    // Perform substitution with latest values
+    if (!scallop_substitute_variables(scallop, copy))
+    {
+        console->error(console,
+                       "variable substitution failed");
+        copy->destroy(copy);
+
+        // TODO: MAKE A MACRO, SIMILAR TO BLAMMO, THAT GENERATES A
+        // RESULT NUMBER AUTOMATICALLY BASED ON FILE/LINE.  AND THAT IS
+        // REVERSIBLE AND INTUITIVE -- HAVE DONE THIS BEFORE SOMEWHERE.
+        scallop_set_result(scallop, -1);
+        return 0;
+    }
+
+    // Check if the condition is an expression
+    if (!sparser_is_expr(copy->cstr(copy)))
+    {
+        console->error(console,
+                       "condition \'%s\' is not an expression",
+                       copy->cstr(copy));
+        copy->destroy(copy);
+        scallop_set_result(scallop, -2);
+        return 0;
+    }
+
+    // Check if the expression is valid
+    result = sparser_evaluate(console->error, console, copy->cstr(copy));
+    if (result == SPARSER_INVALID_EXPRESSION)
+    {
+        console->error(console,
+                       "condition \'%s\' is an invalid expression",
+                       copy->cstr(copy));
+        scallop_set_result(scallop, -3);
+        return 0;
+    }
+
+    copy->destroy(copy);
+    return result;
+}
+
+//------------------------------------------------------------------------|
 // Need to know the command to be executed AND have the unaltered
 // line SIMULTANEOUSLY because the command->is_construct needs to be
 // known in order to disposition the RAW LINE.
@@ -815,7 +929,14 @@ static int scallop_set_result(scallop_t * scallop, int result)
 // be overflowed into 'routine' style argument substitution, in addition
 // to variable-sustitution. -- TBD at a later time.
 // This would require a call to scallop_store_args() from main().
-
+//------------------------------------------------------------------------|
+// TODO: CLEAN UP THIS MESS:
+// if in the middle of defining a routine, while loop,
+// or other user-registered language construct, then
+// call that construct's line handler function rather
+// than executing the line directly. AND if and only
+// if the command itself is not a construct keyword.
+// TODO: TEST THIS WITH NESTED ROUTINE DEFINITIONS
 static void scallop_dispatch(scallop_t * scallop, const char * line)
 {
     // Guard block NULL line ptr, or trivially empty line
@@ -842,19 +963,10 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         return;
     }
 
+    // Make an initial copy of the line mainly because we need
+    // to lookup the command that is being specified.  NOTE:
+    // variables as commands are not supported!
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
-
-    // Preprocessor-like variable substitution needs to happen
-    // before calling tokenize, to allow for supporting spaces
-    // in variables, multiple variables inside arguments, and
-    // complex expression evaluation.
-    if (!scallop_variable_substitution(scallop, linebytes))
-    {
-        priv->depth--;
-        scallop_set_result(scallop, -2);
-        return;
-    }
-
     size_t argc = 0;
     char ** args = linebytes->tokenizer(linebytes,
                                         true,
@@ -883,30 +995,103 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
+        scallop_set_result(scallop, -2);
+        return;
+    }
+
+    // The top item on the language construct stack is whatever is
+    // currently within nested scope (ex: while, if/else, lambda, etc...)
+    // but in most cases is only for keeping track of nesting level
+//    scallop_construct_t * construct = (scallop_construct_t *)
+//            priv->constructs->last(priv->constructs);
+
+    // The bottom item on the language stack is the most important
+    // construct declaration that is actively being defined, rather
+    // than executed.  When things are executed, the whole context
+    // becomes unpacked and flattened one construct at a time.
+    scallop_construct_t * declaration = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
+
+    // Check if the command is a construct that is about to pop the
+    // last item on the construct stack, meaning this is about to be
+    // the end of this multi-line construct declaration!
+    bool is_end_of_declaration = (command->is_construct_pop(command) &&
+            priv->constructs->length(priv->constructs) == 1);
+
+    // This should not happen, but check anyway just to eliminate
+    // it from the truth table.  'end' without matching 'routine/while/if'?
+    if (is_end_of_declaration && !declaration)
+    {
+        priv->console->error(priv->console,
+                             "pop command \'%s\' without construct declaration!",
+                             args[0]);
+
+        linebytes->destroy(linebytes);
+        priv->depth--;
         scallop_set_result(scallop, -3);
         return;
     }
 
-    // Select the top item of the language construct stack
-    // and get the current construct
-    scallop_construct_t * construct = (scallop_construct_t *)
-            priv->constructs->last(priv->constructs);
-
-    // if in the middle of defining a routine, while loop,
-    // or other user-registered language construct, then
-    // call that construct's line handler function rather
-    // than executing the line directly. AND if and only
-    // if the command itself is not a construct keyword.
+    // The truth table here gets complicated
+    // TODO: Transfer TT notes to here.
     int result = 0;
-    if (!command->is_construct(command) && construct && construct->linefunc)
+    bool call_linefunc = declaration && declaration->linefunc &&
+                         !is_end_of_declaration;
+
+    if (call_linefunc)
     {
-        result = construct->linefunc(construct->context,
-                                     construct->object,
-                                     line);
+        // Always add the raw line to the active declaration
+        result = declaration->linefunc(declaration->context,
+                                       declaration->object,
+                                       line);
     }
-    else
+
+    if (command->is_construct(command) || !declaration)
     {
+        // Need to make another copy of the line now in execution
+        // so that variable substitution can occur.
+        linebytes->assign(linebytes, line, strlen(line));
+
+        // Preprocessor-like variable substitution needs to happen
+        // before calling tokenize, to allow for supporting spaces
+        // in variables, multiple variables inside arguments, and
+        // complex expression evaluation.
+        // UPDATE 3/14/2024 - suspend substitution when linefunc was called.
+        // variables might not yet be defined!
+        // ALSO: DO NOT EVER substitute for constructs.  This would
+        // cause breakage when executing (ex:) while loops inside routine
+        // because the expression gets prematurely evaluated.
+        if (!call_linefunc && !command->is_construct(command) &&
+                !scallop_substitute_variables(scallop, linebytes))
+        {
+            linebytes->destroy(linebytes);
+            priv->depth--;
+            scallop_set_result(scallop, -4);
+            return;
+        }
+
+        // When a construct command line is being added to a declaration
+        // (of another construct), it is only executed here to track
+        // nesting levels, so it's effectively a dry run.  mark it so.
+        if (call_linefunc && command->is_construct(command))
+        {
+            command->set_attributes(command, SCALLOP_CMD_ATTR_DRY_RUN);
+        }
+
+        // Re-tokenize now that substitution has occurred.
+        // Assume this copy is going to be OK, since it's been mostly checked already
+        argc = 0;
+        args = linebytes->tokenizer(linebytes,
+                                    true,
+                                    scallop_encaps_pairs,
+                                    scallop_cmd_delim,
+                                    scallop_cmd_comment,
+                                    &argc);
+
+        // Execute the command: calls handler with command, context, and arguments
         result = command->exec(command, argc, args);
+        // It is the responsibility of the command handler to
+        // clear the dry run bit if it should
     }
 
     linebytes->destroy(linebytes);
@@ -915,7 +1100,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 }
 
 //------------------------------------------------------------------------|
-static int scallop_loop(scallop_t * scallop, bool interactive)
+static int scallop_run_console(scallop_t * scallop, bool interactive)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
     char * line = NULL;
@@ -942,6 +1127,28 @@ static int scallop_loop(scallop_t * scallop, bool interactive)
 }
 
 //------------------------------------------------------------------------|
+static int scallop_run_lines(scallop_t * scallop, void * lines_ptr)
+{
+    chain_t * lines = (chain_t *) lines_ptr;
+    bytes_t * line = (bytes_t *) lines->first(lines);
+
+    // Iterate through all lines and dispatch each
+    while (line)
+    {
+        BLAMMO(DEBUG, "About to dispatch(\'%s\')",
+                      line->cstr(line));
+
+        // Dispatch (run) the line
+        scallop->dispatch(scallop, (char *) line->cstr(line));
+
+        // Get next line
+        line = (bytes_t *) lines->next(lines);
+    }
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
 static void scallop_quit(scallop_t * scallop)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
@@ -949,51 +1156,6 @@ static void scallop_quit(scallop_t * scallop)
     // TODO: Determine if it is ever necessary to pump a newline into
     // the console here just to get it off the blocking call?
     // This might not be known until threads are implemented.
-}
-
-//------------------------------------------------------------------------|
-// Private prompt rebuild function on context push/pop
-static void scallop_rebuild_prompt(scallop_t * scallop)
-{
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-    scallop_construct_t * construct = NULL;
-
-    priv->prompt->resize(priv->prompt, 0);
-
-    // start at the bottom of the stack (first) and work towards the top
-    construct = (scallop_construct_t *)
-            priv->constructs->first(priv->constructs);
-    while (construct)
-    {
-        if (!construct->name)
-        {
-
-            priv->console->error(priv->console,
-                                 "NULL name for construct %p",
-                                 construct);
-            break;
-        }
-
-        priv->prompt->append(priv->prompt,
-                             construct->name,
-                             strlen(construct->name));
-
-        construct = (scallop_construct_t *)
-                priv->constructs->next(priv->constructs);
-
-        // put a visual/syntactical delimiter between constructs
-        // shown within the prompt.
-        if (construct)
-        {
-            priv->prompt->append(priv->prompt,
-                                 scallop_prompt_delim,
-                                 strlen(scallop_prompt_delim));
-        }
-    }
-
-    priv->prompt->append(priv->prompt,
-                         scallop_prompt_finale,
-                         strlen(scallop_prompt_finale));
 }
 
 //------------------------------------------------------------------------|
@@ -1028,8 +1190,8 @@ static int scallop_construct_pop(scallop_t * scallop)
 {
     scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
 
-    // Do not allow popping the final element, which is the base prompt
-    if (priv->constructs->length(priv->constructs) <= 1)
+    // Can't pop when the stack is empty!
+    if (priv->constructs->empty(priv->constructs))
     {
         priv->console->error(priv->console, "construct stack is empty");
         return -1;
@@ -1039,15 +1201,26 @@ static int scallop_construct_pop(scallop_t * scallop)
     scallop_construct_t * construct = (scallop_construct_t *)
         priv->constructs->last(priv->constructs);
 
+    // Make a stack copy of the top construct, because we're about to
+    // destroy the heap container.  Everything within the container is
+    // still valid since constructs don't own any of it.
+    scallop_construct_t copy;
+    memcpy(&copy, construct, sizeof(scallop_construct_t));
+
+    // Remove item from the stack, moving all other links back.
+    // This MUST occur before calling the popfunc so that dispatch
+    // doesn't get confused about the declaration versus execution.
+    // Routines don't have this problem because they aren't executed
+    // until well after popping, but ephemeral constructs may execute
+    // upon being popped.
+    priv->constructs->remove(priv->constructs);
+
     // Call the pop function if one is provided
     int result = 0;
-    if (construct && construct->popfunc)
+    if (copy.popfunc)
     {
-        result = construct->popfunc(construct->context, construct->object);
+        result = copy.popfunc(copy.context, copy.object);
     }
-
-    // Remove item from the stack, moving all other links back
-    priv->constructs->remove(priv->constructs);
 
     scallop_rebuild_prompt(scallop);
     return result;
@@ -1064,8 +1237,10 @@ const scallop_t scallop_pub = {
     &scallop_routine_remove,
     &scallop_store_args,
     &scallop_assign_variable,
+    &scallop_evaluate_condition,
     &scallop_dispatch,
-    &scallop_loop,
+    &scallop_run_console,
+    &scallop_run_lines,
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,

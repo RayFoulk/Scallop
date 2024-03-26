@@ -38,23 +38,31 @@
 // for potential user-implementation use cases later on.
 typedef enum
 {
-    SCALLOP_CMD_ATTR_NONE       = 0,
+    SCALLOP_CMD_ATTR_NONE = 0,
 
     // Whether the command is an alias to another.
-    SCALLOP_CMD_ATTR_ALIAS      = (1 << 0),
+    SCALLOP_CMD_ATTR_ALIAS = (1 << 0),
 
     // Whether the command can be dynamically unregistered or altered
     // at runtime as part of a handler's actions.  Most commands are
     // compiled in and registered at program initialization, and are not
     // mutable.  Examples of mutable commands are routines and aliases.
-    SCALLOP_CMD_ATTR_MUTABLE    = (1 << 1),
+    SCALLOP_CMD_ATTR_MUTABLE = (1 << 1),
 
     // Whether the command is part of a multi-line language construct
     // that is pushed onto the construct stack.  These are handled
     // differently than single-line commands in dispatch().  Examples
     // of language constructs include 'routine' and 'end', and anything
     // that causes a construct stack push or pop.
-    SCALLOP_CMD_ATTR_CONSTRUCT  = (1 << 2)
+    SCALLOP_CMD_ATTR_CONSTRUCT_PUSH = (1 << 2),
+
+    // Whether the command is the END of a multi-line language construct
+    // that causes the stack to be popped.
+    SCALLOP_CMD_ATTR_CONSTRUCT_POP = (1 << 3),
+
+    // Whether the command is to be executed as a 'dry run' or not,
+    // however the handler implements this is entirely up to it.
+    SCALLOP_CMD_ATTR_DRY_RUN = (1 << 4)
 
     // All further higher bits are reserved for later use or special-case
     // implementations that use scallop as a CLI toolkit.  Those should
@@ -114,6 +122,11 @@ typedef struct scallop_cmd_t
     void (*set_attributes)(struct scallop_cmd_t * cmd,
                            scallop_cmd_attr_t attributes);
 
+    // Clear any specified bit flags
+    void (*clear_attributes)(struct scallop_cmd_t * cmd,
+                           scallop_cmd_attr_t attributes);
+
+
     // Get whether this command is an alias to another command
     bool (*is_alias)(struct scallop_cmd_t * cmd);
 
@@ -123,6 +136,12 @@ typedef struct scallop_cmd_t
 
     // Get whether this command is part of a multi-line language construct
     bool (*is_construct)(struct scallop_cmd_t * cmd);
+
+    // Get whether this command pops the construct stack
+    bool (*is_construct_pop)(struct scallop_cmd_t * cmd);
+
+    // Get if the 'dry run flag is set
+    bool (*is_dry_run)(struct scallop_cmd_t * cmd);
 
     // Get keyword for _this_ command
     const char * (*keyword)(struct scallop_cmd_t * cmd);

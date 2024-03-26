@@ -8,7 +8,11 @@ TODO:
 - implement 'bits_t' object with tests.
   - This will be needed for raytl to support arbitrary bit width architectures.
   - consider finally finishing C++ BitDeque in parallel.
-    
+
+- BUG: args.sc no longer works because arg lookup happens as variable lookup
+  during routine definition rather than at runtime!!!
+- ability to print a routine would be helpful debugging ability
+  if variable by the same name isn't found. -- is namespace conflict possible? --TEST    
 - introduce some language constructs to scallop:
   - add while loop language construct
   - add if-else language construct

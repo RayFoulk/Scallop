@@ -169,9 +169,9 @@ static int scallop_rtn_handler(void * scmd,
                                char ** args)
 {
     // The command handler function for every routine once registered.
-    // get the routine by name, perform substitutions on lines/args,
-    // and iterate through the lines calling dispatch on each one
-    // until running out and then return.
+    // get the routine by name, and iterate through the lines calling
+    // dispatch on each one until running out and then return.
+    // A routine is very similar to a script.
     // args[0] happens to be the name of the routine,
     // But it is more reliably also cmd->name.
     scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
@@ -191,30 +191,13 @@ static int scallop_rtn_handler(void * scmd,
         return -1;
     }
 
+    // Store subroutine arguments in scallop's variable
+    // collection so dispatch can perform substitution.
+    scallop->store_args(scallop, argc, args);
+
     scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
-    bytes_t * linebytes = NULL;
 
-    // Iterate through all lines and dispatch each
-    priv->lines->reset(priv->lines);
-    do
-    {
-        linebytes = (bytes_t *) priv->lines->data(priv->lines);
-        if (linebytes)
-        {
-            // Store subroutine arguments in scallop's variable
-            // collection so dispatch can perform substitution.
-            scallop->store_args(scallop, argc, args);
-
-            BLAMMO(DEBUG, "About to dispatch(\'%s\')",
-                          linebytes->cstr(linebytes));
-
-            scallop->dispatch(scallop, (char *)
-                              linebytes->cstr(linebytes));
-        }
-    }
-    while(priv->lines->spin(priv->lines, 1));
-
-    return 0;
+    return scallop->run_lines(scallop, priv->lines);
 }
 
 //------------------------------------------------------------------------|
