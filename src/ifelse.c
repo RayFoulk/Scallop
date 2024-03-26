@@ -37,8 +37,7 @@
 // Scallop
 #include "scallop.h"
 #include "command.h"
-#include "while.h"
-//#include "parser.h"
+#include "ifelse.h"
 
 //------------------------------------------------------------------------|
 typedef struct
@@ -46,34 +45,38 @@ typedef struct
     // The raw unevaluated conditional expression associated with this
     bytes_t * condition;
 
-    // Raw command lines consisting of the while body
-    chain_t * lines;
+    // Raw command lines consisting of the if-else blocks
+    chain_t * iflines;
+    chain_t * elselines;
+
+    // which list of lines is being added to
+    chain_t * whichlines;
 }
-scallop_while_priv_t;
+scallop_ifelse_priv_t;
 
 //------------------------------------------------------------------------|
-static scallop_while_t * scallop_while_create(const char * condition)
+static scallop_ifelse_t * scallop_ifelse_create(const char * condition)
 {
-    scallop_while_t * whileloop = (scallop_while_t *) malloc(
-            sizeof(scallop_while_t));
-    if (!whileloop)
+    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) malloc(
+            sizeof(scallop_ifelse_t));
+    if (!ifelse)
     {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_while_t)) failed");
+        BLAMMO(FATAL, "malloc(sizeof(scallop_ifelse_t)) failed");
         return NULL;
     }
 
-    memcpy(whileloop, &scallop_while_pub, sizeof(scallop_while_t));
+    memcpy(ifelse, &scallop_ifelse_pub, sizeof(scallop_ifelse_t));
 
-    whileloop->priv = malloc(sizeof(scallop_while_priv_t));
-    if (!whileloop->priv)
+    ifelse->priv = malloc(sizeof(scallop_ifelse_priv_t));
+    if (!ifelse->priv)
     {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_while_priv_t)) failed");
-        free(whileloop);
+        BLAMMO(FATAL, "malloc(sizeof(scallop_ifelse_priv_t)) failed");
+        free(ifelse);
         return NULL;
     }
 
-    memzero(whileloop->priv, sizeof(scallop_while_priv_t));
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    memzero(ifelse->priv, sizeof(scallop_ifelse_priv_t));
+    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
 
     // The conditional expression associated with the while loop
     // that should be re-evaluated on each iteration.
@@ -81,40 +84,54 @@ static scallop_while_t * scallop_while_create(const char * condition)
     if (!priv->condition)
     {
         BLAMMO(FATAL, "bytes_pub.create(%s) failed", condition);
-        whileloop->destroy(whileloop);
+        ifelse->destroy(ifelse);
         return NULL;
     }
 
     // List of raw (mostly) uninterpreted command lines consisting
-    // of the body of the whileloop.  One exception to this is we'll
+    // of the body of the ifelse.  One exception to this is we'll
     // need to track the nested depth of an 'end' keyword (multi-use)
-    priv->lines = chain_pub.create(bytes_pub.copy,
-                                   bytes_pub.destroy);
-    if (!priv->lines)
+    priv->iflines = chain_pub.create(bytes_pub.copy,
+                                     bytes_pub.destroy);
+    if (!priv->iflines)
     {
         BLAMMO(FATAL, "chain_pub.create() failed");
-        whileloop->destroy(whileloop);
+        ifelse->destroy(ifelse);
         return NULL;
     }
 
-    return whileloop;
+    priv->elselines = chain_pub.create(bytes_pub.copy,
+                                       bytes_pub.destroy);
+    if (!priv->elselines)
+    {
+        BLAMMO(FATAL, "chain_pub.create() failed");
+        ifelse->destroy(ifelse);
+        return NULL;
+    }
+
+    return ifelse;
 }
 
 //------------------------------------------------------------------------|
-static void scallop_while_destroy(void * whileloop_ptr)
+static void scallop_ifelse_destroy(void * ifelse_ptr)
 {
-    scallop_while_t * whileloop = (scallop_while_t *) whileloop_ptr;
-    if (!whileloop || !whileloop->priv)
+    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) ifelse_ptr;
+    if (!ifelse || !ifelse->priv)
     {
         BLAMMO(WARNING, "attempt to early or double-destroy");
         return;
     }
 
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
 
-    if (priv->lines)
+    if (priv->elselines)
     {
-        priv->lines->destroy(priv->lines);
+        priv->elselines->destroy(priv->elselines);
+    }
+
+    if (priv->iflines)
+    {
+        priv->iflines->destroy(priv->iflines);
     }
 
     if (priv->condition)
@@ -122,18 +139,18 @@ static void scallop_while_destroy(void * whileloop_ptr)
         priv->condition->destroy(priv->condition);
     }
 
-    memzero(whileloop->priv, sizeof(scallop_while_priv_t));
-    free(whileloop->priv);
+    memzero(ifelse->priv, sizeof(scallop_ifelse_priv_t));
+    free(ifelse->priv);
 
     // zero out and destroy the public interface
-    memzero(whileloop, sizeof(scallop_while_t));
-    free(whileloop);
+    memzero(ifelse, sizeof(scallop_ifelse_t));
+    free(ifelse);
 }
 
 //------------------------------------------------------------------------|
-static void scallop_while_append(scallop_while_t * whileloop, const char * line)
+static void scallop_ifelse_append(scallop_ifelse_t * ifelse, const char * line)
 {
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
 
     // First create the line object
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
@@ -141,36 +158,40 @@ static void scallop_while_append(scallop_while_t * whileloop, const char * line)
     // Make no assumptions about the state of the chain, but always
     // force the insert at the 'end' of the chain, which is always at -1
     // since the chain is circular.
-    priv->lines->reset(priv->lines);
-    priv->lines->spin(priv->lines, -1);
-    priv->lines->insert(priv->lines, linebytes);
+    priv->whichlines->reset(priv->whichlines);
+    priv->whichlines->spin(priv->whichlines, -1);
+    priv->whichlines->insert(priv->whichlines, linebytes);
 }
 
 //------------------------------------------------------------------------|
-static int scallop_while_runner(scallop_while_t * whileloop,
+static int scallop_ifelse_runner(scallop_ifelse_t * ifelse,
                                 void * context)
 {
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
     scallop_t * scallop = (scallop_t *) context;
     int result = 0;
 
     // Need to perform substitution and evaluation on each iteration
-    while (scallop->evaluate_condition(scallop,
-                                       priv->condition->cstr(priv->condition),
-                                       priv->condition->size(priv->condition)))
+    if (scallop->evaluate_condition(scallop,
+                                    priv->condition->cstr(priv->condition),
+                                    priv->condition->size(priv->condition)))
     {
         // Iterate through all lines and dispatch each
-        result = scallop->run_lines(scallop, priv->lines);
+        result = scallop->run_lines(scallop, priv->iflines);
+    }
+    else
+    {
+        result = scallop->run_lines(scallop, priv->elselines);
     }
 
     return result;
 }
 
 //------------------------------------------------------------------------|
-const scallop_while_t scallop_while_pub = {
-    &scallop_while_create,
-    &scallop_while_destroy,
-    &scallop_while_append,
-    &scallop_while_runner,
+const scallop_ifelse_t scallop_ifelse_pub = {
+    &scallop_ifelse_create,
+    &scallop_ifelse_destroy,
+    &scallop_ifelse_append,
+    &scallop_ifelse_runner,
     NULL
 };
