@@ -33,6 +33,7 @@
 #include "command.h"
 #include "routine.h"
 #include "while.h"
+#include "ifelse.h"
 #include "parser.h"
 #include "builtin.h"
 
@@ -675,6 +676,123 @@ static int builtin_handler_while(void * scmd,
 }
 
 //------------------------------------------------------------------------|
+static int builtin_linefunc_if(void * context,
+                               void * object,
+                               const char * line)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_t * scallop = (scallop_t *) context;
+    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) object;
+
+    if (!ifelse)
+    {
+        BLAMMO(VERBOSE, "dry run if-else linefunc");
+        return 0;
+    }
+
+    ifelse->append(ifelse, line);
+    (void) scallop;
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_popfunc_if(void * context,
+                              void * object)
+{
+    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) object;
+
+    if (!ifelse)
+    {
+        BLAMMO(VERBOSE, "dry run if-else linefunc");
+        return 0;
+    }
+
+    int result = ifelse->runner(ifelse, context);
+
+    // While loop evaporates
+    ifelse->destroy(ifelse);
+
+    return result;
+}
+
+
+//------------------------------------------------------------------------|
+// if-else statements are short-lived like while loops.
+static int builtin_handler_if(void * scmd,
+                              void * context,
+                              int argc,
+                              char ** args)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a conditional expression");
+        return -1;
+    }
+
+    // Create an if-else construct
+    scallop_ifelse_t * ifelse = NULL;
+
+    // For dry run, do not create a while loop object
+    if (cmd->is_dry_run(cmd))
+    {
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+    }
+    else
+    {
+        ifelse = scallop_ifelse_pub.create(args[1]);
+        if (!ifelse)
+        {
+            console->error(console, "create ifelse \'%s\' failed", args[1]);
+            return -2;
+        }
+    }
+
+    scallop->construct_push(scallop,
+        "if-else",                // TODO: Consider names for ifelse???
+        context,
+        ifelse,
+        builtin_linefunc_if,
+        builtin_popfunc_if);
+
+    return 0;
+}
+
+
+//------------------------------------------------------------------------|
+// 'else' is a special command keyword, in that it modifies the existing
+// construct declaration (assuming it's an if-else!)
+static int builtin_handler_else(void * scmd,
+                                void * context,
+                                int argc,
+                                char ** args)
+{
+    BLAMMO(VERBOSE, "");
+
+    scallop_cmd_t * cmd = (scallop_cmd_t *) scmd;
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (cmd->is_dry_run(cmd))
+    {
+        cmd->clear_attributes(cmd, SCALLOP_CMD_ATTR_DRY_RUN);
+        return 0;
+    }
+
+    // FIXME: Might need to revive construct-object after all...
+    (void) console;
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
 static int builtin_handler_end(void * scmd,
                                void * context,
                                int argc,
@@ -703,8 +821,6 @@ bool register_builtin_commands(void * scallop_ptr)
     scallop_cmd_t * cmd = NULL;
     bool success = true;
 
-    // TODO: add 'while' as a language construct.
-    //  need to add an expression evaluator to do this.
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_help,
         scallop,
@@ -800,6 +916,24 @@ bool register_builtin_commands(void * scallop_ptr)
         " (expression)",
         "declare a while-loop construct");
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
+    success &= cmds->register_cmd(cmds, cmd);
+
+    cmd = cmds->create(
+        builtin_handler_if,
+        scallop,
+        "if",
+        " (expression)",
+        "declare an if-else construct. else is optional");
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
+    success &= cmds->register_cmd(cmds, cmd);
+
+    cmd = cmds->create(
+        builtin_handler_else,
+        scallop,
+        "else",
+        "",
+        "the \'else\' part of an if-else construct");
+    //cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
     cmd = cmds->create(

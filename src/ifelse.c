@@ -46,11 +46,11 @@ typedef struct
     bytes_t * condition;
 
     // Raw command lines consisting of the if-else blocks
-    chain_t * iflines;
-    chain_t * elselines;
+    chain_t * if_lines;
+    chain_t * else_lines;
 
     // which list of lines is being added to
-    chain_t * whichlines;
+    chain_t * lines;
 }
 scallop_ifelse_priv_t;
 
@@ -91,23 +91,28 @@ static scallop_ifelse_t * scallop_ifelse_create(const char * condition)
     // List of raw (mostly) uninterpreted command lines consisting
     // of the body of the ifelse.  One exception to this is we'll
     // need to track the nested depth of an 'end' keyword (multi-use)
-    priv->iflines = chain_pub.create(bytes_pub.copy,
+    priv->if_lines = chain_pub.create(bytes_pub.copy,
                                      bytes_pub.destroy);
-    if (!priv->iflines)
+    if (!priv->if_lines)
     {
         BLAMMO(FATAL, "chain_pub.create() failed");
         ifelse->destroy(ifelse);
         return NULL;
     }
 
-    priv->elselines = chain_pub.create(bytes_pub.copy,
+    priv->else_lines = chain_pub.create(bytes_pub.copy,
                                        bytes_pub.destroy);
-    if (!priv->elselines)
+    if (!priv->else_lines)
     {
         BLAMMO(FATAL, "chain_pub.create() failed");
         ifelse->destroy(ifelse);
         return NULL;
     }
+
+    // Lines is initially pointed at if_lines
+    priv->lines = priv->if_lines;
+
+    ifelse->which_lines(ifelse, true);
 
     return ifelse;
 }
@@ -124,14 +129,14 @@ static void scallop_ifelse_destroy(void * ifelse_ptr)
 
     scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
 
-    if (priv->elselines)
+    if (priv->else_lines)
     {
-        priv->elselines->destroy(priv->elselines);
+        priv->else_lines->destroy(priv->else_lines);
     }
 
-    if (priv->iflines)
+    if (priv->if_lines)
     {
-        priv->iflines->destroy(priv->iflines);
+        priv->if_lines->destroy(priv->if_lines);
     }
 
     if (priv->condition)
@@ -148,7 +153,24 @@ static void scallop_ifelse_destroy(void * ifelse_ptr)
 }
 
 //------------------------------------------------------------------------|
-static void scallop_ifelse_append(scallop_ifelse_t * ifelse, const char * line)
+static void scallop_ifelse_which_lines(scallop_ifelse_t * ifelse,
+                                       bool which)
+{
+    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+
+    if (which)
+    {
+        priv->lines = priv->if_lines;
+    }
+    else
+    {
+        priv->lines = priv->else_lines;
+    }
+}
+
+//------------------------------------------------------------------------|
+static void scallop_ifelse_append(scallop_ifelse_t * ifelse,
+                                  const char * line)
 {
     scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
 
@@ -158,9 +180,9 @@ static void scallop_ifelse_append(scallop_ifelse_t * ifelse, const char * line)
     // Make no assumptions about the state of the chain, but always
     // force the insert at the 'end' of the chain, which is always at -1
     // since the chain is circular.
-    priv->whichlines->reset(priv->whichlines);
-    priv->whichlines->spin(priv->whichlines, -1);
-    priv->whichlines->insert(priv->whichlines, linebytes);
+    priv->lines->reset(priv->lines);
+    priv->lines->spin(priv->lines, -1);
+    priv->lines->insert(priv->lines, linebytes);
 }
 
 //------------------------------------------------------------------------|
@@ -177,11 +199,11 @@ static int scallop_ifelse_runner(scallop_ifelse_t * ifelse,
                                     priv->condition->size(priv->condition)))
     {
         // Iterate through all lines and dispatch each
-        result = scallop->run_lines(scallop, priv->iflines);
+        result = scallop->run_lines(scallop, priv->if_lines);
     }
     else
     {
-        result = scallop->run_lines(scallop, priv->elselines);
+        result = scallop->run_lines(scallop, priv->else_lines);
     }
 
     return result;
@@ -191,6 +213,7 @@ static int scallop_ifelse_runner(scallop_ifelse_t * ifelse,
 const scallop_ifelse_t scallop_ifelse_pub = {
     &scallop_ifelse_create,
     &scallop_ifelse_destroy,
+    &scallop_ifelse_which_lines,
     &scallop_ifelse_append,
     &scallop_ifelse_runner,
     NULL

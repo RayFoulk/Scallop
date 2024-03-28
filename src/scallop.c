@@ -145,14 +145,6 @@ typedef struct
     // added-on language construct.
     void * object;
 
-    // The pointer to the routine construct for which this construct is
-    // a part.  For the initial 'routine' keyword this will be self-
-    // referential.  By default it should be NULL for all constructs
-    // that are being executed and not as part of the definition on a
-    // new routine.  routines are basically like a script that has
-    // to be 'written' and this helps to track 'line-adding mode'.
-    //struct scallop_construct_t * routine_decl;
-
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
     // should go directly to dispatch()or exec().  If not, then the
@@ -293,6 +285,7 @@ static void scallop_tab_completion(void * object, const char * buffer)
     pmatches->destroy(pmatches);
 }
 
+//------------------------------------------------------------------------|
 // callback for argument hints
 static char * scallop_arg_hints(void * object,
                                 const char * buffer,
@@ -998,12 +991,6 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         scallop_set_result(scallop, -2);
         return;
     }
-
-    // The top item on the language construct stack is whatever is
-    // currently within nested scope (ex: while, if/else, lambda, etc...)
-    // but in most cases is only for keeping track of nesting level
-//    scallop_construct_t * construct = (scallop_construct_t *)
-//            priv->constructs->last(priv->constructs);
 
     // The bottom item on the language stack is the most important
     // construct declaration that is actively being defined, rather

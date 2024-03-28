@@ -38,7 +38,6 @@
 #include "scallop.h"
 #include "command.h"
 #include "while.h"
-//#include "parser.h"
 
 //------------------------------------------------------------------------|
 typedef struct

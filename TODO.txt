@@ -21,6 +21,7 @@ TODO:
 
 (LOWER PRIORITY)
 
+- BUG: Fix extra newlines in history log file.
 - modularize command sets to dynamically loadable shared modules
   - eliminates compile-time dependency
   - start with builtins => basecmds.so?

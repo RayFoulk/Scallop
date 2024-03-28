@@ -41,6 +41,9 @@ typedef struct scallop_ifelse_t
     // If-else destructor function
     void (*destroy)(void * ifelse);
 
+    // Set which case 'append' should append to
+    void (*which_lines)(struct scallop_ifelse_t * ifelse, bool which);
+
     // Append a line to the if-else conditional
     void (*append)(struct scallop_ifelse_t * ifelse, const char * line);
 
