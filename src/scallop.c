@@ -879,7 +879,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
         // TODO: MAKE A MACRO, SIMILAR TO BLAMMO, THAT GENERATES A
         // RESULT NUMBER AUTOMATICALLY BASED ON FILE/LINE.  AND THAT IS
         // REVERSIBLE AND INTUITIVE -- HAVE DONE THIS BEFORE SOMEWHERE.
-        scallop_set_result(scallop, -1);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -890,7 +890,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
                        "condition \'%s\' is not an expression",
                        copy->cstr(copy));
         copy->destroy(copy);
-        scallop_set_result(scallop, -2);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -901,7 +901,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
         console->error(console,
                        "condition \'%s\' is an invalid expression",
                        copy->cstr(copy));
-        scallop_set_result(scallop, -3);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -952,7 +952,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
                              "maximum recursion depth %u reached",
                              SCALLOP_MAX_RECURS);
         priv->depth--;
-        scallop_set_result(scallop, -1);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
 
@@ -988,7 +988,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
-        scallop_set_result(scallop, -2);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
 
@@ -1005,6 +1005,12 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     bool is_end_of_declaration = (command->is_construct_pop(command) &&
             priv->constructs->length(priv->constructs) == 1);
 
+    // Check if the command is a declaration modifier like 'else' or
+    // 'private' or 'public'.. something that marks a different
+    // section of the declaration.
+    bool is_declaration_modifier = (command->is_construct_modifier(command) &&
+            priv->constructs->length(priv->constructs) == 1);
+
     // This should not happen, but check anyway just to eliminate
     // it from the truth table.  'end' without matching 'routine/while/if'?
     if (is_end_of_declaration && !declaration)
@@ -1015,15 +1021,17 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
-        scallop_set_result(scallop, -3);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
 
     // The truth table here gets complicated
     // TODO: Transfer TT notes to here.
     int result = 0;
+//    bool call_linefunc = declaration && declaration->linefunc &&
+//                         !is_end_of_declaration;
     bool call_linefunc = declaration && declaration->linefunc &&
-                         !is_end_of_declaration;
+                         !is_end_of_declaration && !is_declaration_modifier;
 
     if (call_linefunc)
     {
@@ -1053,7 +1061,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         {
             linebytes->destroy(linebytes);
             priv->depth--;
-            scallop_set_result(scallop, -4);
+            scallop_set_result(scallop, ERROR_MARKER_DEC);
             return;
         }
 
@@ -1214,6 +1222,21 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
+static void * scallop_construct_object(scallop_t * scallop)
+{
+    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    scallop_construct_t * declaration = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
+
+    if (declaration)
+    {
+        return declaration->object;
+    }
+
+    return NULL;
+}
+
+//------------------------------------------------------------------------|
 const scallop_t scallop_pub = {
     &scallop_create,
     &scallop_destroy,
@@ -1231,5 +1254,6 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
+    &scallop_construct_object,
     NULL
 };

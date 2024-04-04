@@ -786,9 +786,16 @@ static int builtin_handler_else(void * scmd,
         return 0;
     }
 
-    // FIXME: Might need to revive construct-object after all...
-    (void) console;
+    scallop_ifelse_t * ifelse = (scallop_ifelse_t *)
+            scallop->construct_object(scallop);
+    if (!ifelse)
+    {
+        console->error(console, "else without if construct");
+        return -1;
+    }
 
+    // Change the set of lines that are appended
+    ifelse->which_lines(ifelse, false);
     return 0;
 }
 
@@ -821,17 +828,23 @@ bool register_builtin_commands(void * scallop_ptr)
     scallop_cmd_t * cmd = NULL;
     bool success = true;
 
+    // TODO: CORE -- IMPORT / MODULE / LOAD
+
+
+    // CORE
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_help,
         scallop,
         "help",
         NULL,
         "show a list of commands with hints and description"));
+
     // TODO? To assist with allowing 'help' to target specific subcommands,
     // all base level commands would have to be re-registered
     // as subcommands under help in order for tab-completion to work.
     // Is this even feasible?  Or would it break the whole model?
 
+    // BASE LANGUAGE - MARGINAL
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_alias,
         scallop,
@@ -842,6 +855,7 @@ bool register_builtin_commands(void * scallop_ptr)
     // TODO: Also, removing a thing should ALWAYS remove all
     //  of it's aliases.  otherwise the aliases are present
     //  but invalid and could cause weird crashes/undefined behavior.
+    // CORE
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_unregister,
         scallop,
@@ -849,6 +863,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " <command-keyword>",
         "unregister a mutable command"));
 
+    // CORE
     scallop_cmd_t * log = cmds->create(
         builtin_handler_log,
         scallop,
@@ -858,6 +873,7 @@ bool register_builtin_commands(void * scallop_ptr)
 
     success &= cmds->register_cmd(cmds, log);
 
+    // CORE
     success &= log->register_cmd(log, log->create(
         builtin_handler_log_level,
         scallop,
@@ -865,6 +881,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " <0..5>",
         "change the blammo log message level (0=VERBOSE, 5=FATAL)"));
 
+    // CORE
     success &= log->register_cmd(log, log->create(
         builtin_handler_log_stdout,
         scallop,
@@ -872,6 +889,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " <true/false>",
         "enable or disable logging to stdout"));
 
+    // CORE
     success &= log->register_cmd(log, log->create(
         builtin_handler_log_file,
         scallop,
@@ -879,6 +897,10 @@ bool register_builtin_commands(void * scallop_ptr)
         " <log-file-path>",
         "change the blammo log file path"));
 
+    // BASE LANGUAGE - MARGINAL -- refactor necessary??
+    // POSSIBLY CORE - print function registry associated
+    // with objects in place of variables - type
+    // could be either 'basic/string' or 'object'
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_print,
         scallop,
@@ -886,6 +908,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " [arbitrary-expression(s)]",
         "print expressions, strings, and variables"));
 
+    // BASE LANGUAGE - MARGINAL
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_assign,
         scallop,
@@ -893,6 +916,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " <var-name> <value>",
         "assign a value to a variable"));
 
+    // BASE LANGUAGE - MARGINAL
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_source,
         scallop,
@@ -900,6 +924,7 @@ bool register_builtin_commands(void * scallop_ptr)
         " <script-path>",
         "load and run a command script"));
 
+    // BASE LANGUAGE
     cmd = cmds->create(
         builtin_handler_routine,
         scallop,
@@ -909,6 +934,7 @@ bool register_builtin_commands(void * scallop_ptr)
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
+    // BASE LANGUAGE
     cmd = cmds->create(
         builtin_handler_while,
         scallop,
@@ -918,6 +944,7 @@ bool register_builtin_commands(void * scallop_ptr)
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
+    // BASE LANGUAGE
     cmd = cmds->create(
         builtin_handler_if,
         scallop,
@@ -927,15 +954,17 @@ bool register_builtin_commands(void * scallop_ptr)
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
     success &= cmds->register_cmd(cmds, cmd);
 
+    // BASE LANGUAGE
     cmd = cmds->create(
         builtin_handler_else,
         scallop,
         "else",
         "",
-        "the \'else\' part of an if-else construct");
-    //cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_PUSH);
+        "denotes the \'else\' part of an if-else construct");
+    cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_MODIFIER);
     success &= cmds->register_cmd(cmds, cmd);
 
+    // BASE LANGUAGE
     cmd = cmds->create(
         builtin_handler_end,
         scallop,
@@ -945,6 +974,7 @@ bool register_builtin_commands(void * scallop_ptr)
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_POP);
     success &= cmds->register_cmd(cmds, cmd);
 
+    // CORE
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_quit,
         scallop,
