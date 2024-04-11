@@ -68,7 +68,7 @@ static int builtin_handler_help(void * scmd,
         if (!found)
         {
             console->error(console, "command %s not found", args[1]);
-            return -1;
+            return ERROR_MARKER_DEC;
         }
 
         // Make a copy of found command so the original doesn't get destroyed
@@ -129,12 +129,12 @@ static int builtin_handler_alias(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected an alias keyword");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
     else if (argc < 3)
     {
         console->error(console, "expected a command to be aliased");
-        return -2;
+        return ERROR_MARKER_DEC;
     }
 
     // Find the command that is referenced
@@ -143,7 +143,7 @@ static int builtin_handler_alias(void * scmd,
     if (!cmd)
     {
         console->error(console, "command %s not found", args[2]);
-        return -3;
+        return ERROR_MARKER_DEC;
     }
 
     // re-register the same command under a different keyword
@@ -152,7 +152,7 @@ static int builtin_handler_alias(void * scmd,
     {
         console->error(console, "failed to register alias %s to %s",
                                 args[1], args[2]);
-        return -4;
+        return ERROR_MARKER_DEC;
     }
 
     return 0;
@@ -170,7 +170,7 @@ static int builtin_handler_unregister(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a command keyword to unregister");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     scallop_cmd_t * scope = scallop->commands(scallop);
@@ -178,7 +178,7 @@ static int builtin_handler_unregister(void * scmd,
     if (!cmd)
     {
         console->error(console, "command %s not found", args[1]);
-        return -2;
+        return ERROR_MARKER_DEC;
     }
 
     if (!cmd->is_mutable(cmd))
@@ -186,7 +186,7 @@ static int builtin_handler_unregister(void * scmd,
         console->error(console,
                        "can't unregister immutable command \'%s\'",
                        cmd->keyword(cmd));
-        return -3;
+        return ERROR_MARKER_DEC;
     }
 
     // NOTE: It is highly unlikely that a command would be both
@@ -196,6 +196,9 @@ static int builtin_handler_unregister(void * scmd,
     // remove the associated routine if the command was also a routine.
     // This will just fail without consequence if the command is not.
     scallop->routine_remove(scallop, cmd->keyword(cmd));
+    // FIXME: When routines are moved out into butter plugin,
+    //  There will need to be a callback or notification made.
+    //  something like scallop->plugins->notify_unreg()
 
     // Unregister the command -- this also destroys the command
     if (!scope->unregister_cmd(scope, cmd))
@@ -203,7 +206,7 @@ static int builtin_handler_unregister(void * scmd,
         console->error(console,
                        "unregister_cmd(%s) failed",
                        cmd->keyword(cmd));
-        return -4;
+        return ERROR_MARKER_DEC;
     }
 
     return 0;
@@ -221,7 +224,7 @@ static int builtin_handler_log(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a log sub-command");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     // Find and execute subcommand
@@ -230,7 +233,7 @@ static int builtin_handler_log(void * scmd,
     if (!cmd)
     {
         console->error(console, "log sub-command %s not found", args[1]);
-        return -2;
+        return ERROR_MARKER_DEC;
     }
 
     // TODO: The answer to nested help may be staring me in the face here,
@@ -252,7 +255,7 @@ static int builtin_handler_log_level(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a numeric log level 0-5");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     BLAMMO_DECLARE(size_t level = strtoul(args[1], NULL, 0));
@@ -274,7 +277,7 @@ static int builtin_handler_log_stdout(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a boolean value");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     BLAMMO(INFO, "Setting log stdout to %s",
@@ -296,11 +299,92 @@ static int builtin_handler_log_file(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a file path/name");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     BLAMMO(INFO, "Setting log file path to %s", args[1]);
     BLAMMO_FILE(args[1]);
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_handler_plugin(void * scmd,
+                                  void * context,
+                                  int argc,
+                                  char ** args)
+{
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a plugin sub-command");
+        return ERROR_MARKER_DEC;
+    }
+
+    // Find and execute subcommand
+    scallop_cmd_t * plugin = (scallop_cmd_t *) scmd;
+    scallop_cmd_t * cmd = plugin->find_by_keyword(plugin, args[1]);
+    if (!cmd)
+    {
+        console->error(console, "plugin sub-command %s not found", args[1]);
+        return ERROR_MARKER_DEC;
+    }
+
+    return cmd->exec(cmd, --argc, &args[1]);
+}
+
+//------------------------------------------------------------------------|
+static int builtin_handler_plugin_add(void * scmd,
+                                      void * context,
+                                      int argc,
+                                      char ** args)
+{
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a plugin name to add");
+        return ERROR_MARKER_DEC;
+    }
+
+    // TODO: DO STUFF
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_handler_plugin_remove(void * scmd,
+                                         void * context,
+                                         int argc,
+                                         char ** args)
+{
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    if (argc < 2)
+    {
+        console->error(console, "expected a plugin name to remove");
+        return ERROR_MARKER_DEC;
+    }
+
+    // TODO: DO STUFF
+
+    return 0;
+}
+
+//------------------------------------------------------------------------|
+static int builtin_handler_plugin_list(void * scmd,
+                                       void * context,
+                                       int argc,
+                                       char ** args)
+{
+    scallop_t * scallop = (scallop_t *) context;
+    console_t * console = scallop->console(scallop);
+
+    // TODO: DO STUFF
 
     return 0;
 }
@@ -320,7 +404,7 @@ static int builtin_handler_print(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected an expression to print");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     // Print each argument/expression on its own line
@@ -331,6 +415,13 @@ static int builtin_handler_print(void * scmd,
         // determine if the expression should be evaluated.
         // 'print' tries to mimic the behavior of 'assign'
         // Only printing instead of assigning.
+        // TODO: Export this from scallop public interface
+        //  similar to evaluate_condition() used by while & if-else
+        //  so that registered handlers are not directly accessing
+        //  supposed-to-be-private parts of scallop
+        // TODO: Also allow variables to be object references and
+        //  introduce a print-function registry per variable.
+        //  class: variable, with type, and pretty-print callback.
         if (sparser_is_expr(args[argnum]))
         {
             result = sparser_evaluate(console->error, console, args[argnum]);
@@ -367,12 +458,12 @@ static int builtin_handler_assign(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a variable name");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
     else if (argc < 3)
     {
         console->error(console, "expected a variable value");
-        return -2;
+        return ERROR_MARKER_DEC;
     }
 
     // Evaluate expression down to a numeric value if it looks like
@@ -386,7 +477,7 @@ static int builtin_handler_assign(void * scmd,
                            "not assigning \'%s\' from invalid expression \'%\'",
                            args[1],
                            args[2]);
-            return -3;
+            return ERROR_MARKER_DEC;
         }
 
         // Numeric assignment
@@ -415,14 +506,14 @@ static int builtin_handler_source(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a file path argument");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     FILE * source = fopen(args[1], "r");
     if (!source)
     {
         console->error(console, "could not open %s for reading", args[1]);
-        return -2;
+        return ERROR_MARKER_DEC;
     }
 
     // Store script arguments in scallop's variable
@@ -518,7 +609,7 @@ static int builtin_handler_routine(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a routine name");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     scallop_rtn_t * routine = NULL;
@@ -538,7 +629,7 @@ static int builtin_handler_routine(void * scmd,
             console->error(console,
                            "routine \'%s\' already exists",
                            args[1]);
-            return -2;
+            return ERROR_MARKER_DEC;
         }
 
         // Create a unique new routine object
@@ -546,7 +637,7 @@ static int builtin_handler_routine(void * scmd,
         if (!routine)
         {
             console->error(console, "create routine \'%s\' failed", args[1]);
-            return -3;
+            return ERROR_MARKER_DEC;
         }
 
         routine_name = routine->name(routine);
@@ -639,7 +730,7 @@ static int builtin_handler_while(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a conditional expression");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     // Create a while loop construct
@@ -656,7 +747,7 @@ static int builtin_handler_while(void * scmd,
         if (!whileloop)
         {
             console->error(console, "create while \'%s\' failed", args[1]);
-            return -2;
+            return ERROR_MARKER_DEC;
         }
     }
 
@@ -734,7 +825,7 @@ static int builtin_handler_if(void * scmd,
     if (argc < 2)
     {
         console->error(console, "expected a conditional expression");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     // Create an if-else construct
@@ -751,7 +842,7 @@ static int builtin_handler_if(void * scmd,
         if (!ifelse)
         {
             console->error(console, "create ifelse \'%s\' failed", args[1]);
-            return -2;
+            return ERROR_MARKER_DEC;
         }
     }
 
@@ -791,7 +882,7 @@ static int builtin_handler_else(void * scmd,
     if (!ifelse)
     {
         console->error(console, "else without if construct");
-        return -1;
+        return ERROR_MARKER_DEC;
     }
 
     // Change the set of lines that are appended
@@ -829,9 +920,15 @@ bool register_builtin_commands(void * scallop_ptr)
     bool success = true;
 
     // TODO: CORE -- IMPORT / MODULE / LOAD
-
+    // plugin load butter
+    // plugin unload butter
+    // plugin list
 
     // CORE
+    // TODO? To assist with allowing 'help' to target specific subcommands,
+    // all base level commands would have to be re-registered
+    // as subcommands under help in order for tab-completion to work.
+    // Is this even feasible?  Or would it break the whole model?
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_help,
         scallop,
@@ -839,12 +936,15 @@ bool register_builtin_commands(void * scallop_ptr)
         NULL,
         "show a list of commands with hints and description"));
 
-    // TODO? To assist with allowing 'help' to target specific subcommands,
-    // all base level commands would have to be re-registered
-    // as subcommands under help in order for tab-completion to work.
-    // Is this even feasible?  Or would it break the whole model?
+    // CORE
+    success &= cmds->register_cmd(cmds, cmds->create(
+        builtin_handler_quit,
+        scallop,
+        "quit",
+        NULL,
+        "exit the scallop command handling loop"));
 
-    // BASE LANGUAGE - MARGINAL
+    // CORE
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_alias,
         scallop,
@@ -855,7 +955,7 @@ bool register_builtin_commands(void * scallop_ptr)
     // TODO: Also, removing a thing should ALWAYS remove all
     //  of it's aliases.  otherwise the aliases are present
     //  but invalid and could cause weird crashes/undefined behavior.
-    // CORE
+    // CORE -- TODO: Also use this to clear variables/objects
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_unregister,
         scallop,
@@ -897,7 +997,43 @@ bool register_builtin_commands(void * scallop_ptr)
         " <log-file-path>",
         "change the blammo log file path"));
 
-    // BASE LANGUAGE - MARGINAL -- refactor necessary??
+
+    // CORE
+    scallop_cmd_t * plugin = cmds->create(
+        builtin_handler_plugin,
+        scallop,
+        "plugin",
+        " <plugin-command> <...>",
+        "add, remove, or list plugins");
+
+    success &= cmds->register_cmd(cmds, plugin);
+
+    // CORE
+    success &= plugin->register_cmd(plugin, plugin->create(
+        builtin_handler_plugin_add,
+        scallop,
+        "add",
+        " <plugin-name>",
+        "add a plugin to scallop"));
+
+    // CORE
+    success &= plugin->register_cmd(plugin, plugin->create(
+        builtin_handler_plugin_remove,
+        scallop,
+        "remove",
+        " <plugin-name>",
+        "remove a plugin from scallop"));
+
+    // CORE
+    success &= plugin->register_cmd(plugin, plugin->create(
+        builtin_handler_plugin_list,
+        scallop,
+        "list",
+        "",
+        "list all currently loaded plugins"));
+
+
+    // BASE LANGUAGE?? -- refactor necessary??
     // POSSIBLY CORE - print function registry associated
     // with objects in place of variables - type
     // could be either 'basic/string' or 'object'
@@ -909,6 +1045,22 @@ bool register_builtin_commands(void * scallop_ptr)
         "print expressions, strings, and variables"));
 
     // BASE LANGUAGE - MARGINAL
+    // Will need to be CORE in order to run general script
+    // otherwise a module load from command line would
+    // always be needed.
+    success &= cmds->register_cmd(cmds, cmds->create(
+        builtin_handler_source,
+        scallop,
+        "source",
+        " <script-path>",
+        "load and run a command script"));
+
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+    // TODO: Move these into butter plugin
+
+    // BASE LANGUAGE - MARGINAL
     success &= cmds->register_cmd(cmds, cmds->create(
         builtin_handler_assign,
         scallop,
@@ -916,13 +1068,6 @@ bool register_builtin_commands(void * scallop_ptr)
         " <var-name> <value>",
         "assign a value to a variable"));
 
-    // BASE LANGUAGE - MARGINAL
-    success &= cmds->register_cmd(cmds, cmds->create(
-        builtin_handler_source,
-        scallop,
-        "source",
-        " <script-path>",
-        "load and run a command script"));
 
     // BASE LANGUAGE
     cmd = cmds->create(
@@ -973,38 +1118,6 @@ bool register_builtin_commands(void * scallop_ptr)
         "finalize a multi-line language construct");
     cmd->set_attributes(cmd, SCALLOP_CMD_ATTR_CONSTRUCT_POP);
     success &= cmds->register_cmd(cmds, cmd);
-
-    // CORE
-    success &= cmds->register_cmd(cmds, cmds->create(
-        builtin_handler_quit,
-        scallop,
-        "quit",
-        NULL,
-        "exit the scallop command handling loop"));
-
-#if 0
-    // BEGIN: NESTING TEST
-    // Visually check whether the help indentation
-    // and text formatting is working properly.
-    // TODO: Remove this code once it is.
-    //  and add a unit test to verify it remains so.
-    scallop_cmd_t * horse = priv->cmds->create(
-        NULL,
-        NULL,
-        "horse",
-        " <nosir>",
-        "i don't like it");
-
-    success &= horse->register_cmd(horse, horse->create(
-        NULL,
-        NULL,
-        "hockey",
-        " <walrus>",
-        "rubber walrus protectors"));
-
-    success &= log->register_cmd(log, horse);
-    // END: NESTING TEST
-#endif
 
     return success;
 }
