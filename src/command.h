@@ -93,7 +93,7 @@ typedef struct scallop_cmd_t
                                      const char * description);
 
     // Shell command destructor function
-    void (*destroy)(void * cmd);
+    void (*destroy)(void * cmd_ptr);
 
     // Shell command copy function
     // Caller is responsible for destroying the copy.

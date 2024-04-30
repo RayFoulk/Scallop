@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------|
-// Copyright (c) 2023 by Raymond M. Foulk IV (rfoulk@gmail.com)
+// Copyright (c) 2023-2024 by Raymond M. Foulk IV (rfoulk@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
@@ -27,7 +27,7 @@
 #include <stddef.h>
 
 #include "command.h"
-#include "utils.h"              // memzero()
+#include "utils.h"              // memzero(), OBJECT macros
 #include "blammo.h"
 #include "chain.h"
 #include "bytes.h"
@@ -79,28 +79,7 @@ static scallop_cmd_t * scallop_cmd_create(scallop_cmd_handler_f handler,
                                           const char * arghints,
                                           const char * description)
 {
-    // Allocate and initialize public interface
-    scallop_cmd_t * cmd = (scallop_cmd_t *) malloc(sizeof(scallop_cmd_t));
-    if (!cmd)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_cmd_t)) failed");
-        return NULL;
-    }
-
-    // Bulk copy all function pointers and initialize opaque ptr
-    memcpy(cmd, &scallop_cmd_pub, sizeof(scallop_cmd_t));
-
-    // Allocate and initialize private implementation
-    cmd->priv = malloc(sizeof(scallop_cmd_priv_t));
-    if (!cmd->priv)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_cmd_priv_t)) failed");
-        free(cmd);
-        return NULL;
-    }
-
-    memzero(cmd->priv, sizeof(scallop_cmd_priv_t));
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_ALLOC(scallop_cmd);
 
     // Most commands are likely not going to have recursive
     // sub-commands, so don't waste memory allocating a bunch
@@ -121,22 +100,14 @@ static scallop_cmd_t * scallop_cmd_create(scallop_cmd_handler_f handler,
     priv->description = bytes_pub.create(description,
                                          description ? strlen(description) : 0);
 
-    return cmd;
+    return scallop_cmd;
 }
 
 //------------------------------------------------------------------------|
 static void scallop_cmd_destroy(void * cmd_ptr)
 {
-    scallop_cmd_t * cmd = (scallop_cmd_t *) cmd_ptr;
-
-    // guard against accidental double-destroy or early-destroy
-    if (!cmd || !cmd->priv)
-    {
-        BLAMMO(WARNING, "attempt to early or double-destroy");
-        return;
-    }
-
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PTR(scallop_cmd, cmd_ptr, );
+    OBJECT_PRIV(scallop_cmd);
 
     // destroy managed strings
     priv->description->destroy(priv->description);
@@ -153,20 +124,14 @@ static void scallop_cmd_destroy(void * cmd_ptr)
         //priv->cmds = NULL;  // redundant
     }
 
-    // zero out and destroy the private data
-    memzero(cmd->priv, sizeof(scallop_cmd_priv_t));
-    free(cmd->priv);
-
-    // zero out and destroy the public interface
-    memzero(cmd, sizeof(scallop_cmd_t));
-    free(cmd);
+    OBJECT_FREE(scallop_cmd);
 }
 
 //------------------------------------------------------------------------|
 static void * scallop_cmd_copy(const void * cmd_ptr)
 {
-    scallop_cmd_t * cmd = (scallop_cmd_t *) cmd_ptr;
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PTR(scallop_cmd, cmd_ptr, NULL);
+    OBJECT_PRIV(scallop_cmd);
 
     scallop_cmd_t * copy =
         scallop_cmd_pub.create(priv->handler,
