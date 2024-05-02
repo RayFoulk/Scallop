@@ -107,7 +107,6 @@ static scallop_cmd_t * scallop_cmd_create(scallop_cmd_handler_f handler,
 static void scallop_cmd_destroy(void * cmd_ptr)
 {
     OBJECT_PTR(scallop_cmd, cmd_ptr, );
-    OBJECT_PRIV(scallop_cmd);
 
     // destroy managed strings
     priv->description->destroy(priv->description);
@@ -131,7 +130,6 @@ static void scallop_cmd_destroy(void * cmd_ptr)
 static void * scallop_cmd_copy(const void * cmd_ptr)
 {
     OBJECT_PTR(scallop_cmd, cmd_ptr, NULL);
-    OBJECT_PRIV(scallop_cmd);
 
     scallop_cmd_t * copy =
         scallop_cmd_pub.create(priv->handler,
@@ -156,7 +154,7 @@ static void * scallop_cmd_copy(const void * cmd_ptr)
 static scallop_cmd_t * scallop_cmd_alias(scallop_cmd_t * cmd,
                                          const char * keyword)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     bytes_t * description = bytes_pub.create(NULL, 0);
 
     // Make a mostly-copy of the original command with a few things
@@ -218,7 +216,7 @@ static int scallop_cmd_keyword_compare(const void * cmd_ptr1,
 static scallop_cmd_t * scallop_cmd_find_by_keyword(scallop_cmd_t * cmd,
                                                    const char * keyword)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
 
     if (!priv->cmds)
     {
@@ -251,7 +249,7 @@ static chain_t * scallop_cmd_partial_matches(scallop_cmd_t * cmd,
                                              const char * substring,
                                              size_t * longest)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
 
     // 'pmatches' is a chain of external, unmanaged pointers.
     chain_t * pmatches = chain_pub.create(NULL, NULL);
@@ -301,7 +299,7 @@ static inline int scallop_cmd_exec(scallop_cmd_t * cmd,
                                    int argc,
                                    char ** args)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
 
     return priv->handler ?
            priv->handler(cmd, priv->context, argc, args) :
@@ -312,7 +310,7 @@ static inline int scallop_cmd_exec(scallop_cmd_t * cmd,
 static void scallop_cmd_set_attributes(scallop_cmd_t * cmd,
                                    scallop_cmd_attr_t attributes)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     priv->attributes |= attributes;
 }
 
@@ -320,28 +318,28 @@ static void scallop_cmd_set_attributes(scallop_cmd_t * cmd,
 static void scallop_cmd_clear_attributes(scallop_cmd_t * cmd,
                                      scallop_cmd_attr_t attributes)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     priv->attributes &= ~attributes;
 }
 
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_alias(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & SCALLOP_CMD_ATTR_ALIAS;
 }
 
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_mutable(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & SCALLOP_CMD_ATTR_MUTABLE;
 }
 
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_construct(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & (SCALLOP_CMD_ATTR_CONSTRUCT_PUSH |
                                SCALLOP_CMD_ATTR_CONSTRUCT_POP |
                                SCALLOP_CMD_ATTR_CONSTRUCT_MODIFIER);
@@ -350,28 +348,28 @@ static inline bool scallop_cmd_is_construct(scallop_cmd_t * cmd)
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_construct_pop(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_POP;
 }
 
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_construct_modifier(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & SCALLOP_CMD_ATTR_CONSTRUCT_MODIFIER;
 }
 
 //------------------------------------------------------------------------|
 static inline bool scallop_cmd_is_dry_run(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->attributes & SCALLOP_CMD_ATTR_DRY_RUN;
 }
 
 //------------------------------------------------------------------------|
 static inline const char * scallop_cmd_keyword(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->keyword->cstr(priv->keyword) ?
            priv->keyword->cstr(priv->keyword) : "";
 }
@@ -379,7 +377,7 @@ static inline const char * scallop_cmd_keyword(scallop_cmd_t * cmd)
 //------------------------------------------------------------------------|
 static inline const char * scallop_cmd_arghints(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->arghints->cstr(priv->arghints) ?
            priv->arghints->cstr(priv->arghints) : "";
 }
@@ -387,19 +385,19 @@ static inline const char * scallop_cmd_arghints(scallop_cmd_t * cmd)
 //------------------------------------------------------------------------|
 static inline const char * scallop_cmd_description(scallop_cmd_t * cmd)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) cmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     return priv->description->cstr(priv->description) ?
            priv->description->cstr(priv->description) : "";
 }
 
 //------------------------------------------------------------------------|
-static void scallop_cmd_longest(scallop_cmd_t * pcmd,
+static void scallop_cmd_longest(scallop_cmd_t * cmd,
                                 size_t * keyword_plus_arghints_longest,
                                 size_t * keyword_longest,
                                 size_t * arghints_longest,
                                 size_t * description_longest)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) pcmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
 
     // Get lengths for this command node
     size_t keyword_len = priv->keyword->size(priv->keyword);
@@ -449,12 +447,12 @@ static void scallop_cmd_longest(scallop_cmd_t * pcmd,
 }
 
 //------------------------------------------------------------------------|
-static int scallop_cmd_help(scallop_cmd_t * pcmd,
+static int scallop_cmd_help(scallop_cmd_t * cmd,
                             bytes_t * help,
                             size_t depth,
                             size_t longest_kw_and_hints)
 {
-    scallop_cmd_priv_t * priv = (scallop_cmd_priv_t *) pcmd->priv;
+    OBJECT_PRIV(scallop_, cmd);
     bytes_t * keyword = priv->keyword;
     bytes_t * subhelp = NULL;
     bytes_t * indent = NULL;
