@@ -79,7 +79,7 @@ static scallop_cmd_t * scallop_cmd_create(scallop_cmd_handler_f handler,
                                           const char * arghints,
                                           const char * description)
 {
-    OBJECT_ALLOC(scallop_cmd);
+    OBJECT_ALLOC(scallop_, cmd);
 
     // Most commands are likely not going to have recursive
     // sub-commands, so don't waste memory allocating a bunch
@@ -100,13 +100,13 @@ static scallop_cmd_t * scallop_cmd_create(scallop_cmd_handler_f handler,
     priv->description = bytes_pub.create(description,
                                          description ? strlen(description) : 0);
 
-    return scallop_cmd;
+    return cmd;
 }
 
 //------------------------------------------------------------------------|
 static void scallop_cmd_destroy(void * cmd_ptr)
 {
-    OBJECT_PTR(scallop_cmd, cmd_ptr, );
+    OBJECT_PTR(scallop_, cmd, cmd_ptr, );
 
     // destroy managed strings
     priv->description->destroy(priv->description);
@@ -123,13 +123,13 @@ static void scallop_cmd_destroy(void * cmd_ptr)
         //priv->cmds = NULL;  // redundant
     }
 
-    OBJECT_FREE(scallop_cmd);
+    OBJECT_FREE(scallop_, cmd);
 }
 
 //------------------------------------------------------------------------|
 static void * scallop_cmd_copy(const void * cmd_ptr)
 {
-    OBJECT_PTR(scallop_cmd, cmd_ptr, NULL);
+    OBJECT_PTR(scallop_, cmd, cmd_ptr, NULL);
 
     scallop_cmd_t * copy =
         scallop_cmd_pub.create(priv->handler,

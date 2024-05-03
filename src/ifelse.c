@@ -57,26 +57,7 @@ scallop_ifelse_priv_t;
 //------------------------------------------------------------------------|
 static scallop_ifelse_t * scallop_ifelse_create(const char * condition)
 {
-    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) malloc(
-            sizeof(scallop_ifelse_t));
-    if (!ifelse)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_ifelse_t)) failed");
-        return NULL;
-    }
-
-    memcpy(ifelse, &scallop_ifelse_pub, sizeof(scallop_ifelse_t));
-
-    ifelse->priv = malloc(sizeof(scallop_ifelse_priv_t));
-    if (!ifelse->priv)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_ifelse_priv_t)) failed");
-        free(ifelse);
-        return NULL;
-    }
-
-    memzero(ifelse->priv, sizeof(scallop_ifelse_priv_t));
-    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+    OBJECT_ALLOC(scallop_, ifelse);
 
     // The conditional expression associated with the while loop
     // that should be re-evaluated on each iteration.
@@ -120,14 +101,7 @@ static scallop_ifelse_t * scallop_ifelse_create(const char * condition)
 //------------------------------------------------------------------------|
 static void scallop_ifelse_destroy(void * ifelse_ptr)
 {
-    scallop_ifelse_t * ifelse = (scallop_ifelse_t *) ifelse_ptr;
-    if (!ifelse || !ifelse->priv)
-    {
-        BLAMMO(WARNING, "attempt to early or double-destroy");
-        return;
-    }
-
-    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+    OBJECT_PTR(scallop_, ifelse, ifelse_ptr, );
 
     if (priv->else_lines)
     {
@@ -144,19 +118,14 @@ static void scallop_ifelse_destroy(void * ifelse_ptr)
         priv->condition->destroy(priv->condition);
     }
 
-    memzero(ifelse->priv, sizeof(scallop_ifelse_priv_t));
-    free(ifelse->priv);
-
-    // zero out and destroy the public interface
-    memzero(ifelse, sizeof(scallop_ifelse_t));
-    free(ifelse);
+    OBJECT_FREE(scallop_, ifelse);
 }
 
 //------------------------------------------------------------------------|
 static void scallop_ifelse_which_lines(scallop_ifelse_t * ifelse,
                                        bool which)
 {
-    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+    OBJECT_PRIV(scallop_, ifelse);
 
     if (which)
     {
@@ -172,7 +141,7 @@ static void scallop_ifelse_which_lines(scallop_ifelse_t * ifelse,
 static void scallop_ifelse_append(scallop_ifelse_t * ifelse,
                                   const char * line)
 {
-    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+    OBJECT_PRIV(scallop_, ifelse);
 
     // First create the line object
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
@@ -189,7 +158,7 @@ static void scallop_ifelse_append(scallop_ifelse_t * ifelse,
 static int scallop_ifelse_runner(scallop_ifelse_t * ifelse,
                                 void * context)
 {
-    scallop_ifelse_priv_t * priv = (scallop_ifelse_priv_t *) ifelse->priv;
+    OBJECT_PRIV(scallop_, ifelse);
     scallop_t * scallop = (scallop_t *) context;
     int result = 0;
 
