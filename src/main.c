@@ -35,6 +35,9 @@ typedef struct
     // Pointer to program name
     char * name;
 
+    // Pointer to program directory
+    char * dir;
+
     // Number of times a signal has been handled
     int sigcount;
 
@@ -81,6 +84,7 @@ void init(char * path)
     // e.g builtin registry of base components
 
     app->name = basename(path);
+    app->dir = dirname(path);
 
     // TODO: consider making inputf/outputf parameters.
     // Could redirect I/O over a tty for example.

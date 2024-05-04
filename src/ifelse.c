@@ -28,7 +28,7 @@
 #include <stddef.h>
 
 // RayCO
-#include "utils.h"              // memzero()
+#include "utils.h"              // memzero(), OBJECT macros
 #include "blammo.h"
 #include "console.h"
 #include "chain.h"

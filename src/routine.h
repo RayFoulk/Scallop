@@ -40,16 +40,16 @@ typedef struct scallop_rtn_t
     struct scallop_rtn_t * (*create)(const char * name);
 
     // Scallop destructor function
-    void (*destroy)(void * routine);
+    void (*destroy)(void * rtn_ptr);
 
     // Name comparator for finding routines in a chain
-    int (*compare_name)(const void * routine, const void * other);
+    int (*compare_name)(const void * rtn_ptr, const void * other);
 
     // Get the name of the routine
-    const char * (*name)(struct scallop_rtn_t * routine);
+    const char * (*name)(struct scallop_rtn_t * rtn);
 
     // Append a line to the routine
-    void (*append)(struct scallop_rtn_t * routine, const char * line);
+    void (*append)(struct scallop_rtn_t * rtn, const char * line);
 
     // Execute the routine with arguments
     int (*handler)(void * scmd, void * context, int argc, char ** args);

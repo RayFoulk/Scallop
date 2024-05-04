@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <libgen.h>             // basename()
+#include <libgen.h>             // basename(), dirname()
 #include <limits.h>
 #include <inttypes.h>
 #include <signal.h>
