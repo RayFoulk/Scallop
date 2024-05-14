@@ -3,6 +3,10 @@ TODO:
 
 (HIGH PRIORITY)
 
+- class-like functions for builtin (soon: butter) registration
+  should be moved to the classes themselves.
+- get butter plugin finished and working.
+- add ability to rename the base prompt and use from plugins
 - modularize command sets to dynamically loadable shared modules
   - eliminates compile-time dependency
   - start with builtins => basecmds.so?

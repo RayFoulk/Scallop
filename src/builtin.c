@@ -32,7 +32,7 @@
 #include "scallop.h"
 #include "command.h"
 #include "routine.h"
-#include "while.h"
+#include "whilex.h"
 #include "ifelse.h"
 #include "parser.h"
 #include "builtin.h"
@@ -666,9 +666,9 @@ static int builtin_linefunc_while(void * context,
     BLAMMO(VERBOSE, "");
 
     scallop_t * scallop = (scallop_t *) context;
-    scallop_while_t * whileloop = (scallop_while_t *) object;
+    scallop_whilex_t * whilex = (scallop_whilex_t *) object;
 
-    if (!whileloop)
+    if (!whilex)
     {
         BLAMMO(VERBOSE, "dry run while loop linefunc");
         return 0;
@@ -676,7 +676,7 @@ static int builtin_linefunc_while(void * context,
 
     // put the raw line as-is in the routine.  variable substitutions
     // and tokenization will occur later during while execution.
-    whileloop->append(whileloop, line);
+    whilex->append(whilex, line);
     (void) scallop;
 
     return 0;
@@ -690,25 +690,25 @@ static int builtin_linefunc_while(void * context,
 static int builtin_popfunc_while(void * context,
                                  void * object)
 {
-    scallop_while_t * whileloop = (scallop_while_t *) object;
+    scallop_whilex_t * whilex = (scallop_whilex_t *) object;
 
     // NOTE: During definition of a routine containing a while loop,
     // this will have no lines to execute and the condition will exist
     // but cannot be evaluated due to substitution not having occurred.
-    if (!whileloop)
+    if (!whilex)
     {
         BLAMMO(VERBOSE, "dry run while loop popfunc");
         return 0;
     }
 
     // For normal while loop in base context, the loop should NOW be
-    // executed (call the whileloop->handler). Then, when it is finished,
+    // executed (call the whilex->handler). Then, when it is finished,
     // destroy it.  While loops are like immediate ephemeral functions,
     // that don't take arguments.
-    int result = whileloop->runner(whileloop, context);
+    int result = whilex->runner(whilex, context);
 
     // While loop evaporates
-    whileloop->destroy(whileloop);
+    whilex->destroy(whilex);
 
     return result;
 }
@@ -734,7 +734,7 @@ static int builtin_handler_while(void * scmd,
     }
 
     // Create a while loop construct
-    scallop_while_t * whileloop = NULL;
+    scallop_whilex_t * whilex = NULL;
 
     // For dry run, do not create a while loop object
     if (cmd->is_dry_run(cmd))
@@ -743,8 +743,8 @@ static int builtin_handler_while(void * scmd,
     }
     else
     {
-        whileloop = scallop_while_pub.create(args[1]);
-        if (!whileloop)
+        whilex = scallop_whilex_pub.create(args[1]);
+        if (!whilex)
         {
             console->error(console, "create while \'%s\' failed", args[1]);
             return ERROR_MARKER_DEC;
@@ -759,7 +759,7 @@ static int builtin_handler_while(void * scmd,
     scallop->construct_push(scallop,
         "while",                // TODO: Consider names for while???
         context,
-        whileloop,
+        whilex,
         builtin_linefunc_while,
         builtin_popfunc_while);
 

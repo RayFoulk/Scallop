@@ -35,24 +35,24 @@
 // a certain state TBD.  It will also continue to execute repeatedly while
 // the conditional expression associated with the while loop is true.
 
-typedef struct scallop_while_t
+typedef struct scallop_whilex_t
 {
     // While factory function
-    struct scallop_while_t * (*create)(const char * condition);
+    struct scallop_whilex_t * (*create)(const char * condition);
 
     // While destructor function
-    void (*destroy)(void * whileloop);
+    void (*destroy)(void * whilex);
 
     // Append a line to the while loop
-    void (*append)(struct scallop_while_t * whileloop, const char * line);
+    void (*append)(struct scallop_whilex_t * whilex, const char * line);
 
     // Run the while loop
-    int (*runner)(struct scallop_while_t * whileloop, void * context);
+    int (*runner)(struct scallop_whilex_t * whilex, void * context);
 
     // Private data
     void * priv;
 }
-scallop_while_t;
+scallop_whilex_t;
 
 //------------------------------------------------------------------------|
-extern const scallop_while_t scallop_while_pub;
+extern const scallop_whilex_t scallop_whilex_pub;
