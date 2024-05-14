@@ -520,3 +520,10 @@ static long sparser_extract_factor(sparser_t * sparser)
     sparser->error_ptr = sparser->ptr;
     return SPARSER_INVALID_EXPRESSION;
 }
+
+//------------------------------------------------------------------------|
+const scallop_parser_t scallop_parser_pub = {
+    &sparser_is_expr,
+    &sparser_evaluate,
+    &sparser_errprintf,
+};
