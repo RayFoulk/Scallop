@@ -834,13 +834,8 @@ static long scallop_evaluate_condition(scallop_t * scallop,
     // Perform substitution with latest values
     if (!scallop_substitute_variables(scallop, copy))
     {
-        console->error(console,
-                       "variable substitution failed");
+        console->error(console, "variable substitution failed");
         copy->destroy(copy);
-
-        // TODO: MAKE A MACRO, SIMILAR TO BLAMMO, THAT GENERATES A
-        // RESULT NUMBER AUTOMATICALLY BASED ON FILE/LINE.  AND THAT IS
-        // REVERSIBLE AND INTUITIVE -- HAVE DONE THIS BEFORE SOMEWHERE.
         scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }

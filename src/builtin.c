@@ -385,6 +385,7 @@ static int builtin_handler_plugin_list(void * scmd,
     console_t * console = scallop->console(scallop);
 
     // TODO: DO STUFF
+    (void) console;
 
     return 0;
 }

@@ -96,7 +96,7 @@ typedef struct scallop_t
 
     // Evaluate a conditional expression, including variable references,
     // as with a while loop or if-else construct.
-    // ex: "while ({i} < 3)" or "if (x == 5)"
+    // ex: "while ({i} < 3)" or "if ({x} == 5)"
     long (*evaluate_condition)(struct scallop_t * scallop,
                                const char * condition,
                                size_t size);
