@@ -35,7 +35,7 @@
 // Simple evaluator using default error print function
 static long evalexpr(const char * expression)
 {
-    return sparser_evaluate(sparser_errprintf,
+    return iparser_evaluate(iparser_errprintf,
                             stderr,
                             expression);
 }

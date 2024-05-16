@@ -55,38 +55,38 @@ typedef struct
     generic_print_f errprintf;
     void * errprintf_object;
 }
-sparser_t;
+iparser_data_t;
 
 //------------------------------------------------------------------------|
 // Forward declarations for functions that need them because of recursion
-static long sparser_expression(sparser_t * sparser);
-static long sparser_extract_term(sparser_t * sparser);
-static long sparser_extract_factor(sparser_t * sparser);
+static long iparser_expression(iparser_data_t * sparser);
+static long iparser_extract_term(iparser_data_t * sparser);
+static long iparser_extract_factor(iparser_data_t * sparser);
 
 //------------------------------------------------------------------------|
-bool sparser_is_expr(const char * expr)
+bool iparser_is_expression(const char * expr)
 {
     // TODO: consider checking for any operator also...
     return strchr(expr, '(') && strchr(expr, ')');
 }
 
 // The entry point for evaluating expressions
-long sparser_evaluate(generic_print_f errprintf,
+long iparser_evaluate(generic_print_f errprintf,
                       void * errprintf_object,
                       const char * expr)
 {
     // Short-lived stack object to help with parsing this expression
-    sparser_t sparser;
+    iparser_data_t sparser;
 
     // Initialize the object
-    memzero(&sparser, sizeof(sparser_t));
+    memzero(&sparser, sizeof(iparser_data_t));
     sparser.expr = (char *) expr;
     sparser.ptr = (char *) expr;
     sparser.errprintf = errprintf;
     sparser.errprintf_object = errprintf_object;
 
     // Parse the expression.  Sparser evaporates.
-    long result = sparser_expression(&sparser);
+    long result = iparser_expression(&sparser);
 
     // Check if an invalid expression was detected at some point
     if (sparser.error_ptr)
@@ -107,7 +107,7 @@ long sparser_evaluate(generic_print_f errprintf,
 
 //------------------------------------------------------------------------|
 // A default error printf function for projects that don't implement one.
-int sparser_errprintf(void * stream, const char * format, ...)
+int iparser_errprintf(void * stream, const char * format, ...)
 {
     va_list args;
     int nchars = 0;
@@ -119,9 +119,9 @@ int sparser_errprintf(void * stream, const char * format, ...)
     return nchars;
 }
 
-static void sparser_track_term(sparser_t * sparser,
-                               const char * start,
-                               size_t length)
+static void iparser_update_final(iparser_data_t * sparser,
+                                 const char * start,
+                                 size_t length)
 {
     // This is basically a 2-unit queue.
     // Move the queue down and add the new term.
@@ -132,7 +132,7 @@ static void sparser_track_term(sparser_t * sparser,
 }
 
 // Helper function to skip whitespace
-static void skip_whitespace(sparser_t * sparser)
+static void skip_whitespace(iparser_data_t * sparser)
 {
     while (isspace(*sparser->ptr))
     {
@@ -141,14 +141,14 @@ static void skip_whitespace(sparser_t * sparser)
 }
 
 // Looks ahead but does not consume the token
-static bool peek_token(sparser_t * sparser, const char * token)
+static bool peek_token(iparser_data_t * sparser, const char * token)
 {
     skip_whitespace(sparser);
     return !strncmp(sparser->ptr, token, strlen(token));
 }
 
 // Matches and consumes the token
-static bool match_token(sparser_t * sparser, const char * token)
+static bool match_token(iparser_data_t * sparser, const char * token)
 {
     if (peek_token(sparser, token))
     {
@@ -161,28 +161,28 @@ static bool match_token(sparser_t * sparser, const char * token)
 
 //------------------------------------------------------------------------|
 // Look ahead to see if the next operation is addition or subtraction
-static bool is_add_sub(sparser_t * sparser)
+static bool is_add_sub(iparser_data_t * sparser)
 {
     return (peek_token(sparser, "+") ||
             peek_token(sparser, "-"));
 }
 
 // Look ahead to see if the next operation is multiplication or division
-static bool is_mul_div(sparser_t * sparser)
+static bool is_mul_div(iparser_data_t * sparser)
 {
     return (peek_token(sparser, "*") ||
             peek_token(sparser, "/"));
 }
 
 // Look ahead to see if the next operation is logical
-static bool is_logical(sparser_t * sparser)
+static bool is_logical(iparser_data_t * sparser)
 {
     return (peek_token(sparser, "&&") ||
             peek_token(sparser, "||"));
 }
 
 // Look ahead to see if the next operation is comparison
-static bool is_comparison(sparser_t * sparser)
+static bool is_comparison(iparser_data_t * sparser)
 {
     return (peek_token(sparser, "==") ||
             peek_token(sparser, "!=") ||
@@ -193,14 +193,14 @@ static bool is_comparison(sparser_t * sparser)
 }
 
 //------------------------------------------------------------------------|
-static long sparser_handle_add_sub(sparser_t * sparser, long left)
+static long iparser_handle_add_sub(iparser_data_t * sparser, long left)
 {
     while (peek_token(sparser, "+") || peek_token(sparser, "-"))
     {
         char op = *sparser->ptr;
         sparser->ptr++;     // Consume '+' or '-'
         skip_whitespace(sparser);
-        long right = sparser_extract_term(sparser);
+        long right = iparser_extract_term(sparser);
 
         if (op == '+')
         {
@@ -217,14 +217,14 @@ static long sparser_handle_add_sub(sparser_t * sparser, long left)
     return left;
 }
 
-static long sparser_handle_mul_div(sparser_t * sparser, long left)
+static long iparser_handle_mul_div(iparser_data_t * sparser, long left)
 {
     while (peek_token(sparser, "*") || peek_token(sparser, "/"))
     {
         char op = *sparser->ptr;
         sparser->ptr++;     // Consume '*' or '/'
         skip_whitespace(sparser);
-        long right = sparser_extract_factor(sparser);
+        long right = iparser_extract_factor(sparser);
 
         if (op == '*')
         {
@@ -241,11 +241,11 @@ static long sparser_handle_mul_div(sparser_t * sparser, long left)
     return left;
 }
 
-static long sparser_handle_comparison(sparser_t * sparser, long left)
+static long iparser_handle_comparison(iparser_data_t * sparser, long left)
 {
     if (match_token(sparser, "=="))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
 
         // Do string comparison if the last two terms were strings
         if (sparser->first && sparser->second)
@@ -266,7 +266,7 @@ static long sparser_handle_comparison(sparser_t * sparser, long left)
     }
     else if (match_token(sparser, "!="))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
 
         // Do string comparison if the last two terms were strings
         if (sparser->first && sparser->second)
@@ -287,38 +287,38 @@ static long sparser_handle_comparison(sparser_t * sparser, long left)
     }
     else if (match_token(sparser, ">="))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left >= right;
     }
     else if (match_token(sparser, "<="))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left <= right;
     }
     else if (match_token(sparser, ">"))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left > right;
     }
     else if (match_token(sparser, "<"))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left < right;
     }
 
     return left;
 }
 
-static long sparser_handle_logical(sparser_t * sparser, long left)
+static long iparser_handle_logical(iparser_data_t * sparser, long left)
 {
     if (match_token(sparser, "&&"))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left && right;
     }
     else if (match_token(sparser, "||"))
     {
-        long right = sparser_expression(sparser);
+        long right = iparser_expression(sparser);
         return left || right;
     }
 
@@ -326,7 +326,7 @@ static long sparser_handle_logical(sparser_t * sparser, long left)
 }
 
 // Parse a number - Terminal node in parse tree
-static long sparser_terminal_number(sparser_t * sparser)
+static long iparser_final_number(iparser_data_t * sparser)
 {
     long result = 0;
 
@@ -342,14 +342,14 @@ static long sparser_terminal_number(sparser_t * sparser)
     // then track this as a number and not a string
     if (sparser->ptr != start)
     {
-        sparser_track_term(sparser, NULL, 0);
+        iparser_update_final(sparser, NULL, 0);
     }
 
     return result;
 }
 
 // Parse a string - Terminal node in parse tree
-static long sparser_terminal_string(sparser_t * sparser)
+static long iparser_final_string(iparser_data_t * sparser)
 {
     // skip the opening double quote
     bool quoted = match_token(sparser, "\"");
@@ -371,7 +371,7 @@ static long sparser_terminal_string(sparser_t * sparser)
     // then track this as a string and not a number.
     if ((sparser->ptr != start) || quoted)
     {
-        sparser_track_term(sparser, start, length);
+        iparser_update_final(sparser, start, length);
     }
 
     // Allow for alphabetization up to 3 chars deep
@@ -384,7 +384,7 @@ static long sparser_terminal_string(sparser_t * sparser)
 
 //------------------------------------------------------------------------|
 // Parse an expression -- recursion entry point for all expressions.
-static long sparser_expression(sparser_t * sparser)
+static long iparser_expression(iparser_data_t * sparser)
 {
     sparser->depth++;
 
@@ -403,7 +403,7 @@ static long sparser_expression(sparser_t * sparser)
         return SPARSER_INVALID_EXPRESSION;
     }
 
-    long left = sparser_extract_term(sparser);
+    long left = iparser_extract_term(sparser);
     skip_whitespace(sparser);
 
     // Check for other conditions that should stop any further parsing
@@ -434,15 +434,15 @@ static long sparser_expression(sparser_t * sparser)
 
     if (is_add_sub(sparser))
     {
-        left = sparser_handle_add_sub(sparser, left);
+        left = iparser_handle_add_sub(sparser, left);
     }
     else if (is_comparison(sparser))
     {
-        left = sparser_handle_comparison(sparser, left);
+        left = iparser_handle_comparison(sparser, left);
     }
     else if(is_logical(sparser))
     {
-        left = sparser_handle_logical(sparser, left);
+        left = iparser_handle_logical(sparser, left);
     }
 
     skip_whitespace(sparser);
@@ -450,20 +450,20 @@ static long sparser_expression(sparser_t * sparser)
     return left;
 }
 
-static long sparser_extract_term(sparser_t * sparser)
+static long iparser_extract_term(iparser_data_t * sparser)
 {
-    long left = sparser_extract_factor(sparser);
+    long left = iparser_extract_factor(sparser);
     skip_whitespace(sparser);
 
     if (is_mul_div(sparser))
     {
-        left = sparser_handle_mul_div(sparser, left);
+        left = iparser_handle_mul_div(sparser, left);
     }
 
     return left;
 }
 
-static long sparser_extract_factor(sparser_t * sparser)
+static long iparser_extract_factor(iparser_data_t * sparser)
 {
     skip_whitespace(sparser);
     long result;
@@ -472,7 +472,7 @@ static long sparser_extract_factor(sparser_t * sparser)
     if (*sparser->ptr == '(')
     {
         sparser->ptr++;     // Consume '('
-        result = sparser_expression(sparser);
+        result = iparser_expression(sparser);
         skip_whitespace(sparser);
         if (*sparser->ptr == ')')
         {
@@ -491,22 +491,22 @@ static long sparser_extract_factor(sparser_t * sparser)
     else if (*sparser->ptr == '!')
     {
         sparser->ptr++;  // Consume '!'
-        return !sparser_extract_factor(sparser);
+        return !iparser_extract_factor(sparser);
     }
     else if (*sparser->ptr == '-')
     {
         sparser->ptr++;  // Consume '-'
-        return -sparser_extract_factor(sparser);
+        return -iparser_extract_factor(sparser);
     }
     else if (isdigit(*sparser->ptr))
     {
-        result = sparser_terminal_number(sparser);
+        result = iparser_final_number(sparser);
         skip_whitespace(sparser);
         return result;
     }
     else if (*sparser->ptr == '"' || isalpha(*sparser->ptr) || *sparser->ptr == '_')
     {
-        result = sparser_terminal_string(sparser);
+        result = iparser_final_string(sparser);
         skip_whitespace(sparser);
         return result;
     }
@@ -523,7 +523,7 @@ static long sparser_extract_factor(sparser_t * sparser)
 
 //------------------------------------------------------------------------|
 const scallop_parser_t scallop_parser_pub = {
-    &sparser_is_expr,
-    &sparser_evaluate,
-    &sparser_errprintf,
+    &iparser_is_expression,
+    &iparser_evaluate,
+    &iparser_errprintf,
 };
