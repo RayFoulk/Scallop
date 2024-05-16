@@ -41,7 +41,7 @@
 #include "command.h"
 #include "builtin.h"
 #include "routine.h"
-#include "parser.h"
+#include "iparser.h"
 
 //------------------------------------------------------------------------|
 // Various constants that define the syntax/dialect/behavior of scallop's

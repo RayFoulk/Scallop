@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "parser.h"
+#include "iparser.h"
 #include "console.h"
 #include "command.h"
 #include "routine.h"
