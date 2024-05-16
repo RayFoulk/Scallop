@@ -53,33 +53,14 @@ scallop_rtn_priv_t;
 //------------------------------------------------------------------------|
 static scallop_rtn_t * scallop_rtn_create(const char * name)
 {
-    scallop_rtn_t * routine = (scallop_rtn_t *) malloc(
-            sizeof(scallop_rtn_t));
-    if (!routine)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_rtn_t)) failed");
-        return NULL;
-    }
-
-    memcpy(routine, &scallop_rtn_pub, sizeof(scallop_rtn_t));
-
-    routine->priv = malloc(sizeof(scallop_rtn_priv_t));
-    if (!routine->priv)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_rtn_priv_t)) failed");
-        free(routine);
-        return NULL;
-    }
-
-    memzero(routine->priv, sizeof(scallop_rtn_priv_t));
-    scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
+    OBJECT_ALLOC(scallop_, rtn);
 
     // Name of this routine (NO SPACES!!! - FIXME filter this)
     priv->name = bytes_pub.create(name, strlen(name));
     if (!priv->name)
     {
         BLAMMO(FATAL, "bytes_pub.create(%s) failed", name);
-        routine->destroy(routine);
+        rtn->destroy(rtn);
         return NULL;
     }
 
@@ -91,24 +72,17 @@ static scallop_rtn_t * scallop_rtn_create(const char * name)
     if (!priv->lines)
     {
         BLAMMO(FATAL, "chain_pub.create() failed");
-        routine->destroy(routine);
+        rtn->destroy(rtn);
         return NULL;
     }
 
-    return routine;
+    return rtn;
 }
 
 //------------------------------------------------------------------------|
-static void scallop_rtn_destroy(void * routine_ptr)
+static void scallop_rtn_destroy(void * rtn_ptr)
 {
-    scallop_rtn_t * routine = (scallop_rtn_t *) routine_ptr;
-    if (!routine || !routine->priv)
-    {
-        BLAMMO(WARNING, "attempt to early or double-destroy");
-        return;
-    }
-
-    scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
+    OBJECT_PTR(scallop_, rtn, rtn_ptr, );
 
     if (priv->lines)
     {
@@ -120,36 +94,31 @@ static void scallop_rtn_destroy(void * routine_ptr)
         priv->name->destroy(priv->name);
     }
 
-    memzero(routine->priv, sizeof(scallop_rtn_priv_t));
-    free(routine->priv);
-
-    // zero out and destroy the public interface
-    memzero(routine, sizeof(scallop_rtn_t));
-    free(routine);
+    OBJECT_FREE(scallop_, rtn);
 }
 
-static int scallop_rtn_compare_name(const void * routine,
+static int scallop_rtn_compare_name(const void * rtn_ptr,
                                     const void * other)
 {
-    scallop_rtn_t * routine1 = (scallop_rtn_t *) routine;
-    scallop_rtn_priv_t * priv1 = (scallop_rtn_priv_t *) routine1->priv;
+    scallop_rtn_t * rtn1 = (scallop_rtn_t *) rtn_ptr;
+    scallop_rtn_priv_t * priv1 = (scallop_rtn_priv_t *) rtn1->priv;
 
-    scallop_rtn_t * routine2 = (scallop_rtn_t *) other;
-    scallop_rtn_priv_t * priv2 = (scallop_rtn_priv_t *) routine2->priv;
+    scallop_rtn_t * rtn2 = (scallop_rtn_t *) other;
+    scallop_rtn_priv_t * priv2 = (scallop_rtn_priv_t *) rtn2->priv;
 
     return priv1->name->compare(priv1->name, priv2->name);
 }
 //------------------------------------------------------------------------|
-static inline const char * scallop_rtn_name(scallop_rtn_t * routine)
+static inline const char * scallop_rtn_name(scallop_rtn_t * rtn)
 {
-    scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
+    OBJECT_PRIV(scallop_, rtn);
     return priv->name->cstr(priv->name);
 }
 
 //------------------------------------------------------------------------|
-static void scallop_rtn_append(scallop_rtn_t * routine, const char * line)
+static void scallop_rtn_append(scallop_rtn_t * rtn, const char * line)
 {
-    scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
+    OBJECT_PRIV(scallop_, rtn);
 
     // First create the line object
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
@@ -181,9 +150,9 @@ static int scallop_rtn_handler(void * scmd,
     // Find _this_ routine.  TODO: Is there a faster way to
     // find/get the routine associated with the command we're
     // executing?  seems like there should be.  revisit this later.
-    scallop_rtn_t * routine = scallop->routine_by_name(scallop,
-                                                       cmd->keyword(cmd));
-    if (!routine)
+    scallop_rtn_t * rtn = scallop->routine_by_name(scallop,
+                                                   cmd->keyword(cmd));
+    if (!rtn)
     {
         console->error(console,
                        "routine \'%s\' not found",
@@ -195,7 +164,7 @@ static int scallop_rtn_handler(void * scmd,
     // collection so dispatch can perform substitution.
     scallop->store_args(scallop, argc, args);
 
-    scallop_rtn_priv_t * priv = (scallop_rtn_priv_t *) routine->priv;
+    OBJECT_PRIV(scallop_, rtn);
 
     return scallop->run_lines(scallop, priv->lines);
 }

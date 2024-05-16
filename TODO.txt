@@ -3,30 +3,32 @@ TODO:
 
 (HIGH PRIORITY)
 
-- BUG: console->print(console, "%s", "") seems to crash.
-- introduce functional tests and split test make targets into func and unit
-- implement 'bits_t' object with tests.
-  - This will be needed for raytl to support arbitrary bit width architectures.
-  - consider finally finishing C++ BitDeque in parallel.
-
-- BUG: args.sc no longer works because arg lookup happens as variable lookup
-  during routine definition rather than at runtime!!!
-- ability to print a routine would be helpful debugging ability
-  if variable by the same name isn't found. -- is namespace conflict possible? --TEST    
-- introduce some language constructs to scallop:
-  - add while loop language construct
-  - add if-else language construct
-  - after these features are added and confirmed working, TAG it and USE it.
-- clean up TODOs and FIXMEs in the code.
-
-(LOWER PRIORITY)
-
+- class-like functions for builtin (soon: butter) registration
+  should be moved to the classes themselves.
+- get butter plugin finished and working.
+- add ability to rename the base prompt and use from plugins
 - modularize command sets to dynamically loadable shared modules
   - eliminates compile-time dependency
   - start with builtins => basecmds.so?
   - must be loadable at least by command line option, implying
     separation of scallop from rayco, or at least scallop as a standalone
     ELF entry point.  all further derivative projects will be .so
+  - This is a necessity for project usability
+- BUG: console->print(console, "%s", "") seems to crash.
+- introduce functional tests and split test make targets into func and unit
+- implement 'bits_t' object with tests.
+  - This will be needed for raytl to support arbitrary bit width architectures.
+  - consider finally finishing C++ BitDeque in parallel.
+
+- ability to print a routine would be helpful debugging ability
+  if variable by the same name isn't found. -- is namespace conflict possible? --TEST    
+- clean up TODOs and FIXMEs in the code.
+- Once fundamentally usable for projects like RayTL, TAG and use it for them.
+
+(LOWER PRIORITY)
+
+- Introduce AUTORESULT macro to generate markers based on file and line num
+- BUG: Fix extra newlines in history log file.
 - consider using doxygen to generate project documentation
 - consider adding metadata tags to project once production-ready
 - harden code with static and dynamic analysis (valgrind, others...)
@@ -161,6 +163,11 @@ find . -type f -regex ".*\.[ch]" -exec grep -nHA1 FIXME {} +
 +-------------------------------------------------------------------------+
 DONE:
 
+* BUG: args.sc no longer works because arg lookup happens as variable lookup
+  during routine definition rather than at runtime!!!
+* introduce some language constructs to scallop:
+  * add while loop language construct
+  * add if-else language construct
 * introduce some language constructs to scallop:
   * recursive descent parser for expression evaluation (integer only - assume no FPU)
     * research "recursive descent parser" and "arithmetic expression evaluator"

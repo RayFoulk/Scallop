@@ -145,14 +145,6 @@ typedef struct
     // added-on language construct.
     void * object;
 
-    // The pointer to the routine construct for which this construct is
-    // a part.  For the initial 'routine' keyword this will be self-
-    // referential.  By default it should be NULL for all constructs
-    // that are being executed and not as part of the definition on a
-    // new routine.  routines are basically like a script that has
-    // to be 'written' and this helps to track 'line-adding mode'.
-    //struct scallop_construct_t * routine_decl;
-
     // The function to be called when a line is provided by
     // the user or a script.  If this is NULL then the line
     // should go directly to dispatch()or exec().  If not, then the
@@ -189,8 +181,7 @@ static void scallop_tab_completion(void * object, const char * buffer)
     BLAMMO(DEBUG, "buffer: \'%s\'", buffer);
 
     // Always get a handle on the singleton scallop
-    scallop_t * scallop = (scallop_t *) object;
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PTR(, scallop, object, );
 
     // Do full split on mock command line so that we can match
     // fully qualified keywords up to and including incomplete
@@ -293,6 +284,7 @@ static void scallop_tab_completion(void * object, const char * buffer)
     pmatches->destroy(pmatches);
 }
 
+//------------------------------------------------------------------------|
 // callback for argument hints
 static char * scallop_arg_hints(void * object,
                                 const char * buffer,
@@ -302,8 +294,7 @@ static char * scallop_arg_hints(void * object,
     BLAMMO(DEBUG, "buffer: \'%s\'", buffer);
 
     // Always get a handle on the singleton scallop
-    scallop_t * scallop = (scallop_t *) object;
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PTR(, scallop, object, NULL);
 
     // Do full split on mock command line in order to preemptively
     // distinguish which specific command is about to be invoked so that
@@ -416,7 +407,7 @@ static char * scallop_arg_hints(void * object,
 // Private prompt rebuild function on context push/pop
 static void scallop_rebuild_prompt(scallop_t * scallop)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     scallop_construct_t * construct = NULL;
 
     priv->prompt->resize(priv->prompt, 0);
@@ -465,28 +456,7 @@ static scallop_t * scallop_create(console_t * console,
                                   scallop_registration_f registration,
                                   const char * prompt_base)
 {
-    // Allocate and initialize public interface
-    scallop_t * scallop = (scallop_t *) malloc(sizeof(scallop_t));
-    if (!scallop)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_t)) failed");
-        return NULL;
-    }
-
-    // Bulk copy all function pointers and init opaque ptr
-    memcpy(scallop, &scallop_pub, sizeof(scallop_t));
-
-    // Allocate and initialize private implementation
-    scallop->priv = malloc(sizeof(scallop_priv_t));
-    if (!scallop->priv)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_priv_t)) failed");
-        free(scallop);
-        return NULL;
-    }
-
-    memzero(scallop->priv, sizeof(scallop_priv_t));
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_ALLOC(, scallop);
 
     // Expect that a console must be given
     if (!console)
@@ -564,16 +534,7 @@ static scallop_t * scallop_create(console_t * console,
 //------------------------------------------------------------------------|
 static void scallop_destroy(void * scallop_ptr)
 {
-    scallop_t * scallop = (scallop_t *) scallop_ptr;
-
-    // guard against accidental double-destroy or early-destroy
-    if (!scallop || !scallop->priv)
-    {
-        BLAMMO(WARNING, "attempt to early or double-destroy");
-        return;
-    }
-
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PTR(, scallop, scallop_ptr, );
 
     // Destroy all routines
     if (priv->routines)
@@ -605,26 +566,20 @@ static void scallop_destroy(void * scallop_ptr)
         priv->variables->destroy(priv->variables);
     }
 
-    // zero out and destroy the private data
-    memzero(scallop->priv, sizeof(scallop_priv_t));
-    free(scallop->priv);
-
-    // zero out and destroy the public interface
-    memzero(scallop, sizeof(scallop_t));
-    free(scallop);
+    OBJECT_FREE(, scallop);
 }
 
 //------------------------------------------------------------------------|
 static inline console_t * scallop_console(scallop_t * scallop)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     return priv->console;
 }
 
 //------------------------------------------------------------------------|
 static inline scallop_cmd_t * scallop_commands(scallop_t * scallop)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     return priv->commands;
 }
 
@@ -632,11 +587,11 @@ static inline scallop_cmd_t * scallop_commands(scallop_t * scallop)
 static scallop_rtn_t * scallop_routine_by_name(scallop_t * scallop,
                                                const char * name)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     // Create a temporary working copy of a routine object
-    scallop_rtn_t * routine = scallop_rtn_pub.create(name);
-    if (!routine)
+    scallop_rtn_t * rtn = scallop_rtn_pub.create(name);
+    if (!rtn)
     {
         BLAMMO(ERROR, "scallop_rtn_pub.create(%s) failed", name);
         return NULL;
@@ -645,11 +600,11 @@ static scallop_rtn_t * scallop_routine_by_name(scallop_t * scallop,
     // Check if there is already a routine by the given name
     scallop_rtn_t * found = (scallop_rtn_t *)
             priv->routines->find(priv->routines,
-                                 routine,
-                                 routine->compare_name);
+                                 rtn,
+                                 rtn->compare_name);
 
     // Destroy temporary working copy
-    routine->destroy(routine);
+    rtn->destroy(rtn);
 
     // Return the routine if it was found or NULL if not.
     return found;
@@ -659,28 +614,28 @@ static scallop_rtn_t * scallop_routine_by_name(scallop_t * scallop,
 static scallop_rtn_t * scallop_routine_insert(scallop_t * scallop,
                                               const char * name)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     // Create a unique new routine object
-    scallop_rtn_t * routine = scallop_rtn_pub.create(name);
-    if (!routine)
+    scallop_rtn_t * rtn = scallop_rtn_pub.create(name);
+    if (!rtn)
     {
         BLAMMO(ERROR, "scallop_rtn_pub.create(%s) failed", name);
         return NULL;
     }
 
     // Store the new routine in the chain.
-    priv->routines->insert(priv->routines, routine);
-    return routine;
+    priv->routines->insert(priv->routines, rtn);
+    return rtn;
 }
 
 //------------------------------------------------------------------------|
 static void scallop_routine_remove(scallop_t * scallop,
                                    const char * name)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
-    scallop_rtn_t * routine = scallop->routine_by_name(scallop, name);
-    if (!routine)
+    OBJECT_PRIV(, scallop);
+    scallop_rtn_t * rtn = scallop->routine_by_name(scallop, name);
+    if (!rtn)
     {
         BLAMMO(WARNING, "Routine \'%s\' not found", name);
         return;
@@ -695,7 +650,7 @@ static void scallop_routine_remove(scallop_t * scallop,
 //------------------------------------------------------------------------|
 static void scallop_store_args(scallop_t * scallop, int argc, char ** args)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     // First clear out any old args, but this is only necessary if
     // there were previously more than there are now, since collect->set()
@@ -757,7 +712,7 @@ static void scallop_assign_variable(scallop_t * scallop,
                                     const char * varname,
                                     const char * varvalue)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     bytes_t * valuebytes = bytes_pub.create(varvalue,
                                             strlen(varvalue));
 
@@ -773,7 +728,7 @@ static void scallop_assign_variable(scallop_t * scallop,
 static bool scallop_substitute_variables(scallop_t * scallop,
                                          bytes_t * linebytes)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     ssize_t offset_begin = 0;
     ssize_t offset_end = 0;
     bytes_t * varname = bytes_pub.create(NULL, 0);
@@ -845,7 +800,7 @@ static bool scallop_substitute_variables(scallop_t * scallop,
 // special "%?" return value in the variable collection
 static int scallop_set_result(scallop_t * scallop, int result)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     bytes_t * varname = bytes_pub.print_create("%s%s",
                                                scallop_arg_prefix,
@@ -879,14 +834,9 @@ static long scallop_evaluate_condition(scallop_t * scallop,
     // Perform substitution with latest values
     if (!scallop_substitute_variables(scallop, copy))
     {
-        console->error(console,
-                       "variable substitution failed");
+        console->error(console, "variable substitution failed");
         copy->destroy(copy);
-
-        // TODO: MAKE A MACRO, SIMILAR TO BLAMMO, THAT GENERATES A
-        // RESULT NUMBER AUTOMATICALLY BASED ON FILE/LINE.  AND THAT IS
-        // REVERSIBLE AND INTUITIVE -- HAVE DONE THIS BEFORE SOMEWHERE.
-        scallop_set_result(scallop, -1);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -897,7 +847,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
                        "condition \'%s\' is not an expression",
                        copy->cstr(copy));
         copy->destroy(copy);
-        scallop_set_result(scallop, -2);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -908,7 +858,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
         console->error(console,
                        "condition \'%s\' is an invalid expression",
                        copy->cstr(copy));
-        scallop_set_result(scallop, -3);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return 0;
     }
 
@@ -947,7 +897,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         return;
     }
 
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     BLAMMO(VERBOSE, "priv: %p depth: %u line: %s",
                     priv, priv->depth, line);
 
@@ -959,7 +909,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
                              "maximum recursion depth %u reached",
                              SCALLOP_MAX_RECURS);
         priv->depth--;
-        scallop_set_result(scallop, -1);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
 
@@ -995,15 +945,9 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
-        scallop_set_result(scallop, -2);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
-
-    // The top item on the language construct stack is whatever is
-    // currently within nested scope (ex: while, if/else, lambda, etc...)
-    // but in most cases is only for keeping track of nesting level
-//    scallop_construct_t * construct = (scallop_construct_t *)
-//            priv->constructs->last(priv->constructs);
 
     // The bottom item on the language stack is the most important
     // construct declaration that is actively being defined, rather
@@ -1018,6 +962,12 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
     bool is_end_of_declaration = (command->is_construct_pop(command) &&
             priv->constructs->length(priv->constructs) == 1);
 
+    // Check if the command is a declaration modifier like 'else' or
+    // 'private' or 'public'.. something that marks a different
+    // section of the declaration.
+    bool is_declaration_modifier = (command->is_construct_modifier(command) &&
+            priv->constructs->length(priv->constructs) == 1);
+
     // This should not happen, but check anyway just to eliminate
     // it from the truth table.  'end' without matching 'routine/while/if'?
     if (is_end_of_declaration && !declaration)
@@ -1028,15 +978,17 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 
         linebytes->destroy(linebytes);
         priv->depth--;
-        scallop_set_result(scallop, -3);
+        scallop_set_result(scallop, ERROR_MARKER_DEC);
         return;
     }
 
     // The truth table here gets complicated
     // TODO: Transfer TT notes to here.
     int result = 0;
+//    bool call_linefunc = declaration && declaration->linefunc &&
+//                         !is_end_of_declaration;
     bool call_linefunc = declaration && declaration->linefunc &&
-                         !is_end_of_declaration;
+                         !is_end_of_declaration && !is_declaration_modifier;
 
     if (call_linefunc)
     {
@@ -1066,7 +1018,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         {
             linebytes->destroy(linebytes);
             priv->depth--;
-            scallop_set_result(scallop, -4);
+            scallop_set_result(scallop, ERROR_MARKER_DEC);
             return;
         }
 
@@ -1102,7 +1054,7 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
 //------------------------------------------------------------------------|
 static int scallop_run_console(scallop_t * scallop, bool interactive)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     char * line = NULL;
 
     while (!priv->console->inputf_eof(priv->console) && !priv->quit)
@@ -1151,7 +1103,7 @@ static int scallop_run_lines(scallop_t * scallop, void * lines_ptr)
 //------------------------------------------------------------------------|
 static void scallop_quit(scallop_t * scallop)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
     priv->quit = true;
     // TODO: Determine if it is ever necessary to pump a newline into
     // the console here just to get it off the blocking call?
@@ -1166,7 +1118,7 @@ static void scallop_construct_push(scallop_t * scallop,
                                    scallop_construct_line_f linefunc,
                                    scallop_construct_pop_f popfunc)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     // Create a context structure to be pushed
     scallop_construct_t * construct = (scallop_construct_t *)
@@ -1188,7 +1140,7 @@ static void scallop_construct_push(scallop_t * scallop,
 //------------------------------------------------------------------------|
 static int scallop_construct_pop(scallop_t * scallop)
 {
-    scallop_priv_t * priv = (scallop_priv_t *) scallop->priv;
+    OBJECT_PRIV(, scallop);
 
     // Can't pop when the stack is empty!
     if (priv->constructs->empty(priv->constructs))
@@ -1227,6 +1179,21 @@ static int scallop_construct_pop(scallop_t * scallop)
 }
 
 //------------------------------------------------------------------------|
+static void * scallop_construct_object(scallop_t * scallop)
+{
+    OBJECT_PRIV(, scallop);
+    scallop_construct_t * declaration = (scallop_construct_t *)
+            priv->constructs->first(priv->constructs);
+
+    if (declaration)
+    {
+        return declaration->object;
+    }
+
+    return NULL;
+}
+
+//------------------------------------------------------------------------|
 const scallop_t scallop_pub = {
     &scallop_create,
     &scallop_destroy,
@@ -1244,5 +1211,6 @@ const scallop_t scallop_pub = {
     &scallop_quit,
     &scallop_construct_push,
     &scallop_construct_pop,
+    &scallop_construct_object,
     NULL
 };

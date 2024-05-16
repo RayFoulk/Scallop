@@ -1,3 +1,6 @@
 [submodule "ext/RayCO"]
 	path = ext/RayCO
 	url = git@github.com:RayFoulk/RayCO.git
+[submodule "ext/Butter"]
+	path = ext/Butter
+	url = git@github.com:RayFoulk/Butter.git

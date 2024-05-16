@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------|
-// Copyright (c) 2023 by Raymond M. Foulk IV (rfoulk@gmail.com)
+// Copyright (c) 2023-2024 by Raymond M. Foulk IV (rfoulk@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
@@ -98,6 +98,7 @@ extern "C" {
 #define SPARSER_INVALID_EXPRESSION          LONG_MIN
 
 //------------------------------------------------------------------------|
+#if 1
 // Do a simple dry-run evaluation.  Return true if successful.
 // Makes the assumption that an expression must contain parenthesis,
 // although this is not necessarily true in all cases.
@@ -122,6 +123,30 @@ long sparser_evaluate(generic_print_f errprintf,
 //
 // This will output any parsing error message to stderr.
 int sparser_errprintf(void * stream, const char * format, ...);
+#endif
+
+//------------------------------------------------------------------------|
+// Don't create parser as a heap object, but use it as a singleton stack
+// object with all public methods and no heap private data.
+typedef struct scallop_parser_t
+{
+    // Check whether a string is an expression
+    bool (*is_expression)(const char * expression);
+
+    // Evaluate an expression to signed long integer
+    long (*evaluate)(generic_print_f errprintf,
+                     void * errprintf_object,
+                     const char * expr);
+
+    // Default error print function.  If your project doesn't have an
+    // implementation, this one can be used with evaluate(), which
+    // will dump directly to stderr
+    int (*errprintf)(void * stream, const char * format, ...);
+}
+scallop_parser_t;
+
+//------------------------------------------------------------------------|
+extern const scallop_parser_t scallop_parser_pub;
 
 #ifdef __cplusplus
 }

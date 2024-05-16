@@ -29,30 +29,31 @@
 #include <stdbool.h>
 
 //------------------------------------------------------------------------|
-// A scallop while loop is very similar to a routine, but it is not named
-// and executes at a different point in the context.  Rather than being
-// called, it executes it's stored lines when the construct stack is in
-// a certain state TBD.  It will also continue to execute repeatedly while
-// the conditional expression associated with the while loop is true.
-
-typedef struct scallop_while_t
+// A scallop if-else conditional is close to a while loop construct, but
+// executes only once, and also has two sets of lines rather than one.
+// They are short-lived and exist only on the contruct stack, and are
+// destroyed once run on stack pop.
+typedef struct scallop_ifelse_t
 {
-    // While factory function
-    struct scallop_while_t * (*create)(const char * condition);
+    // If-else factory function
+    struct scallop_ifelse_t * (*create)(const char * condition);
 
-    // While destructor function
-    void (*destroy)(void * whileloop);
+    // If-else destructor function
+    void (*destroy)(void * ifelse);
 
-    // Append a line to the while loop
-    void (*append)(struct scallop_while_t * whileloop, const char * line);
+    // Set which case 'append' should append to
+    void (*which_lines)(struct scallop_ifelse_t * ifelse, bool which);
 
-    // Run the while loop
-    int (*runner)(struct scallop_while_t * whileloop, void * context);
+    // Append a line to the if-else conditional
+    void (*append)(struct scallop_ifelse_t * ifelse, const char * line);
+
+    // Run the if-else conditional
+    int (*runner)(struct scallop_ifelse_t * ifelse, void * context);
 
     // Private data
     void * priv;
 }
-scallop_while_t;
+scallop_ifelse_t;
 
 //------------------------------------------------------------------------|
-extern const scallop_while_t scallop_while_pub;
+extern const scallop_ifelse_t scallop_ifelse_pub;

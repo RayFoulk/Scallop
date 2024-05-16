@@ -60,9 +60,13 @@ typedef enum
     // that causes the stack to be popped.
     SCALLOP_CMD_ATTR_CONSTRUCT_POP = (1 << 3),
 
+    // Whether the command is a modifier of the current language construct
+    // that is at the bottom of the stack: the current declaration
+    SCALLOP_CMD_ATTR_CONSTRUCT_MODIFIER = (1 << 4),
+
     // Whether the command is to be executed as a 'dry run' or not,
     // however the handler implements this is entirely up to it.
-    SCALLOP_CMD_ATTR_DRY_RUN = (1 << 4)
+    SCALLOP_CMD_ATTR_DRY_RUN = (1 << 5)
 
     // All further higher bits are reserved for later use or special-case
     // implementations that use scallop as a CLI toolkit.  Those should
@@ -89,7 +93,7 @@ typedef struct scallop_cmd_t
                                      const char * description);
 
     // Shell command destructor function
-    void (*destroy)(void * cmd);
+    void (*destroy)(void * cmd_ptr);
 
     // Shell command copy function
     // Caller is responsible for destroying the copy.
@@ -139,6 +143,9 @@ typedef struct scallop_cmd_t
 
     // Get whether this command pops the construct stack
     bool (*is_construct_pop)(struct scallop_cmd_t * cmd);
+
+    // Get whether this command modifies the declaration construct
+    bool (*is_construct_modifier)(struct scallop_cmd_t * cmd);
 
     // Get if the 'dry run flag is set
     bool (*is_dry_run)(struct scallop_cmd_t * cmd);

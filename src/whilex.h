@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------|
-// Copyright (c) 2018-2020 by Raymond M. Foulk IV (rfoulk@gmail.com)
+// Copyright (c) 2023-2024 by Raymond M. Foulk IV (rfoulk@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
@@ -21,34 +21,38 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //------------------------------------------------------------------------|
 
-//------------------------------------------------------------------------|
 #pragma once
 
-//------------------------------------------------------------------------|
-#include <stdio.h>
 #include <stddef.h>
-#include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
-#include <libgen.h>             // basename(), dirname()
-#include <limits.h>
-#include <inttypes.h>
-#include <signal.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <errno.h>
 
 //------------------------------------------------------------------------|
-#define APP_VERSION           "0.0.1"
-#define APP_MAX_SIGCOUNT      5
-#define APP_BUFFER_SIZE       1024
+// A scallop while loop is very similar to a routine, but it is not named
+// and executes at a different point in the context.  Rather than being
+// called, it executes it's stored lines when the construct stack is in
+// a certain state TBD.  It will also continue to execute repeatedly while
+// the conditional expression associated with the while loop is true.
+
+typedef struct scallop_whilex_t
+{
+    // While factory function
+    struct scallop_whilex_t * (*create)(const char * condition);
+
+    // While destructor function
+    void (*destroy)(void * whilex);
+
+    // Append a line to the while loop
+    void (*append)(struct scallop_whilex_t * whilex, const char * line);
+
+    // Run the while loop
+    int (*runner)(struct scallop_whilex_t * whilex, void * context);
+
+    // Private data
+    void * priv;
+}
+scallop_whilex_t;
 
 //------------------------------------------------------------------------|
-int main(int argc, char *argv[]);
-void init(char * path);
-void sighandler(int signum);
-void quit(int status);
-int parse(int argc, char *argv[]);
-void usage(const char *progname, const char *opts);
-int prompt();
+extern const scallop_whilex_t scallop_whilex_pub;

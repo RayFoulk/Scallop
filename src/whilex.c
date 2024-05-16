@@ -28,7 +28,7 @@
 #include <stddef.h>
 
 // RayCO
-#include "utils.h"              // memzero()
+#include "utils.h"              // memzero(), OBJECT macros
 #include "blammo.h"
 #include "console.h"
 #include "chain.h"
@@ -37,43 +37,23 @@
 // Scallop
 #include "scallop.h"
 #include "command.h"
-#include "while.h"
-//#include "parser.h"
+#include "whilex.h"
 
 //------------------------------------------------------------------------|
 typedef struct
 {
-    // The name of this while
+    // The raw unevaluated conditional expression associated with this
     bytes_t * condition;
 
     // Raw command lines consisting of the while body
     chain_t * lines;
 }
-scallop_while_priv_t;
+scallop_whilex_priv_t;
 
 //------------------------------------------------------------------------|
-static scallop_while_t * scallop_while_create(const char * condition)
+static scallop_whilex_t * scallop_whilex_create(const char * condition)
 {
-    scallop_while_t * whileloop = (scallop_while_t *) malloc(
-            sizeof(scallop_while_t));
-    if (!whileloop)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_while_t)) failed");
-        return NULL;
-    }
-
-    memcpy(whileloop, &scallop_while_pub, sizeof(scallop_while_t));
-
-    whileloop->priv = malloc(sizeof(scallop_while_priv_t));
-    if (!whileloop->priv)
-    {
-        BLAMMO(FATAL, "malloc(sizeof(scallop_while_priv_t)) failed");
-        free(whileloop);
-        return NULL;
-    }
-
-    memzero(whileloop->priv, sizeof(scallop_while_priv_t));
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    OBJECT_ALLOC(scallop_, whilex);
 
     // The conditional expression associated with the while loop
     // that should be re-evaluated on each iteration.
@@ -81,36 +61,29 @@ static scallop_while_t * scallop_while_create(const char * condition)
     if (!priv->condition)
     {
         BLAMMO(FATAL, "bytes_pub.create(%s) failed", condition);
-        whileloop->destroy(whileloop);
+        whilex->destroy(whilex);
         return NULL;
     }
 
     // List of raw (mostly) uninterpreted command lines consisting
-    // of the body of the whileloop.  One exception to this is we'll
+    // of the body of the whilex.  One exception to this is we'll
     // need to track the nested depth of an 'end' keyword (multi-use)
     priv->lines = chain_pub.create(bytes_pub.copy,
                                    bytes_pub.destroy);
     if (!priv->lines)
     {
         BLAMMO(FATAL, "chain_pub.create() failed");
-        whileloop->destroy(whileloop);
+        whilex->destroy(whilex);
         return NULL;
     }
 
-    return whileloop;
+    return whilex;
 }
 
 //------------------------------------------------------------------------|
-static void scallop_while_destroy(void * whileloop_ptr)
+static void scallop_whilex_destroy(void * whilex_ptr)
 {
-    scallop_while_t * whileloop = (scallop_while_t *) whileloop_ptr;
-    if (!whileloop || !whileloop->priv)
-    {
-        BLAMMO(WARNING, "attempt to early or double-destroy");
-        return;
-    }
-
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    OBJECT_PTR(scallop_, whilex, whilex_ptr, );
 
     if (priv->lines)
     {
@@ -122,18 +95,13 @@ static void scallop_while_destroy(void * whileloop_ptr)
         priv->condition->destroy(priv->condition);
     }
 
-    memzero(whileloop->priv, sizeof(scallop_while_priv_t));
-    free(whileloop->priv);
-
-    // zero out and destroy the public interface
-    memzero(whileloop, sizeof(scallop_while_t));
-    free(whileloop);
+    OBJECT_FREE(scallop_, whilex);
 }
 
 //------------------------------------------------------------------------|
-static void scallop_while_append(scallop_while_t * whileloop, const char * line)
+static void scallop_whilex_append(scallop_whilex_t * whilex, const char * line)
 {
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    OBJECT_PRIV(scallop_, whilex);
 
     // First create the line object
     bytes_t * linebytes = bytes_pub.create(line, strlen(line));
@@ -147,10 +115,10 @@ static void scallop_while_append(scallop_while_t * whileloop, const char * line)
 }
 
 //------------------------------------------------------------------------|
-static int scallop_while_runner(scallop_while_t * whileloop,
+static int scallop_whilex_runner(scallop_whilex_t * whilex,
                                 void * context)
 {
-    scallop_while_priv_t * priv = (scallop_while_priv_t *) whileloop->priv;
+    OBJECT_PRIV(scallop_, whilex);
     scallop_t * scallop = (scallop_t *) context;
     int result = 0;
 
@@ -167,10 +135,10 @@ static int scallop_while_runner(scallop_while_t * whileloop,
 }
 
 //------------------------------------------------------------------------|
-const scallop_while_t scallop_while_pub = {
-    &scallop_while_create,
-    &scallop_while_destroy,
-    &scallop_while_append,
-    &scallop_while_runner,
+const scallop_whilex_t scallop_whilex_pub = {
+    &scallop_whilex_create,
+    &scallop_whilex_destroy,
+    &scallop_whilex_append,
+    &scallop_whilex_runner,
     NULL
 };
