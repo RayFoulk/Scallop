@@ -100,7 +100,7 @@ extern "C" {
 //------------------------------------------------------------------------|
 // Don't create parser as a heap object, but use it as a singleton stack
 // object with all public methods and no heap private data.
-typedef struct scallop_parser_t
+typedef struct iparser_t
 {
     // Check whether a string is an expression
     bool (*is_expression)(const char * expression);
@@ -115,10 +115,10 @@ typedef struct scallop_parser_t
     // will dump directly to stderr
     int (*errprintf)(void * stream, const char * format, ...);
 }
-scallop_parser_t;
+iparser_t;
 
 //------------------------------------------------------------------------|
-extern const scallop_parser_t scallop_parser_pub;
+extern const iparser_t iparser_pub;
 
 #ifdef __cplusplus
 }

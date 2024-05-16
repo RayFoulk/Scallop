@@ -107,7 +107,7 @@ typedef struct scallop_t
     //  migrating to a unified "evaluate_condition"/expression
     //  call -- but this will require some refactoring.  consider
     //  removing this export ASAP.
-    scallop_parser_t * (*parser)(struct scallop_t * scallop);
+    iparser_t * (*parser)(struct scallop_t * scallop);
 
     // Handle a raw line of input, calling whatever
     // handler functions are necessary.

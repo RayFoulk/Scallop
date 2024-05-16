@@ -43,8 +43,8 @@ static long evalexpr(const char * expression)
 TESTSUITE_BEGIN
 
     BLAMMO_LEVEL(INFO);
-    BLAMMO_FILE("test_sparser.log");
-    BLAMMO(INFO, "sparser tests...");
+    BLAMMO_FILE("test_iparser.log");
+    BLAMMO(INFO, "iparser tests...");
 
 TEST_BEGIN("addition")
     CHECK(evalexpr("2 + 3") == 5);

@@ -124,7 +124,7 @@ typedef struct
     console_t * console;
 
     // Pointer to the internal parser object
-    scallop_parser_t * parser;
+    iparser_t * parser;
 }
 scallop_priv_t;
 
@@ -480,7 +480,7 @@ static scallop_t * scallop_create(console_t * console,
     // Set the parser pointer to the global parser singleton
     // This object has no private data, and operates using the
     // program stack, so one instance will service all callers.
-    priv->parser = (scallop_parser_t *) &scallop_parser_pub;
+    priv->parser = (iparser_t *) &iparser_pub;
 
     // Create variables collection
     priv->variables = collect_pub.create();
@@ -833,7 +833,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
                                        size_t size)
 {
     console_t * console = scallop->console(scallop);
-    scallop_parser_t * parser = scallop->parser(scallop);
+    iparser_t * parser = scallop->parser(scallop);
 
     // Make a fresh copy of the raw condition string every call
     bytes_t * copy = bytes_pub.create(condition, size);
@@ -876,7 +876,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
 }
 
 //------------------------------------------------------------------------|
-static inline scallop_parser_t * scallop_parser(scallop_t * scallop)
+static inline iparser_t * scallop_parser(scallop_t * scallop)
 {
     OBJECT_PRIV(, scallop);
     return priv->parser;

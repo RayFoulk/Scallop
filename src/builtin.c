@@ -398,7 +398,7 @@ static int builtin_handler_print(void * scmd,
 {
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
-    scallop_parser_t * parser = scallop->parser(scallop);
+    iparser_t * parser = scallop->parser(scallop);
     long result = 0;
     int argnum = 1;
 
@@ -413,7 +413,7 @@ static int builtin_handler_print(void * scmd,
     // only keep track of and return the most recent result
     for (argnum = 1; argnum < argc; argnum++)
     {
-        // Still testing this approach of having the sparser
+        // Still testing this approach of having the iparser
         // determine if the expression should be evaluated.
         // 'print' tries to mimic the behavior of 'assign'
         // Only printing instead of assigning.
@@ -455,7 +455,7 @@ static int builtin_handler_assign(void * scmd,
 {
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
-    scallop_parser_t * parser = scallop->parser(scallop);
+    iparser_t * parser = scallop->parser(scallop);
     long result = 0;
 
     if (argc < 2)
