@@ -398,6 +398,7 @@ static int builtin_handler_print(void * scmd,
 {
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
+    scallop_parser_t * parser = scallop->parser(scallop);
     long result = 0;
     int argnum = 1;
 
@@ -423,9 +424,9 @@ static int builtin_handler_print(void * scmd,
         // TODO: Also allow variables to be object references and
         //  introduce a print-function registry per variable.
         //  class: variable, with type, and pretty-print callback.
-        if (sparser_is_expr(args[argnum]))
+        if (parser->is_expression(args[argnum]))
         {
-            result = sparser_evaluate(console->error, console, args[argnum]);
+            result = parser->evaluate(console->error, console, args[argnum]);
             if (result == SPARSER_INVALID_EXPRESSION)
             {
                 console->error(console,
@@ -454,6 +455,7 @@ static int builtin_handler_assign(void * scmd,
 {
     scallop_t * scallop = (scallop_t *) context;
     console_t * console = scallop->console(scallop);
+    scallop_parser_t * parser = scallop->parser(scallop);
     long result = 0;
 
     if (argc < 2)
@@ -469,9 +471,9 @@ static int builtin_handler_assign(void * scmd,
 
     // Evaluate expression down to a numeric value if it looks like
     // we should, based on some very shallow and flakey criteria
-    if (sparser_is_expr(args[2]))
+    if (parser->is_expression(args[2]))
     {
-        result = sparser_evaluate(console->error, console, args[2]);
+        result = parser->evaluate(console->error, console, args[2]);
         if (result == SPARSER_INVALID_EXPRESSION)
         {
             console->error(console,

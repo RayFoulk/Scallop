@@ -98,34 +98,6 @@ extern "C" {
 #define SPARSER_INVALID_EXPRESSION          LONG_MIN
 
 //------------------------------------------------------------------------|
-#if 1
-// Do a simple dry-run evaluation.  Return true if successful.
-// Makes the assumption that an expression must contain parenthesis,
-// although this is not necessarily true in all cases.
-//bool sparser_dryrun(const char * expr);
-// NOTE: probably not a good idea b/c then we won't attempt to evaluate
-// even when we should, and wouldn't provide helpful syntax error info...
-// also this effectively evalutes things twice so is not efficient.
-// Then again -- maybe just perform some simple checks.  Try it and see.
-bool sparser_is_expr(const char * expr);
-
-// The top-level expression evaluator.
-long sparser_evaluate(generic_print_f errprintf,
-                      void * errprintf_object,
-                      const char * expr);
-
-// Default error print function.  If your project doesn't have an
-// implementation, this one can be used like so:
-//
-//   long value = sparser_evaluate(sparser_errprintf,
-//                                 stderr,
-//                                 myexpr);
-//
-// This will output any parsing error message to stderr.
-int sparser_errprintf(void * stream, const char * format, ...);
-#endif
-
-//------------------------------------------------------------------------|
 // Don't create parser as a heap object, but use it as a singleton stack
 // object with all public methods and no heap private data.
 typedef struct scallop_parser_t

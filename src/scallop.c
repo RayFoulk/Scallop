@@ -122,6 +122,9 @@ typedef struct
 
     // Pointer to the console object for user I/O
     console_t * console;
+
+    // Pointer to the internal parser object
+    scallop_parser_t * parser;
 }
 scallop_priv_t;
 
@@ -474,6 +477,11 @@ static scallop_t * scallop_create(console_t * console,
                                 scallop_arg_hints,
                                 scallop);
 
+    // Set the parser pointer to the global parser singleton
+    // This object has no private data, and operates using the
+    // program stack, so one instance will service all callers.
+    priv->parser = (scallop_parser_t *) &scallop_parser_pub;
+
     // Create variables collection
     priv->variables = collect_pub.create();
     if (!priv->variables)
@@ -825,6 +833,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
                                        size_t size)
 {
     console_t * console = scallop->console(scallop);
+    scallop_parser_t * parser = scallop->parser(scallop);
 
     // Make a fresh copy of the raw condition string every call
     bytes_t * copy = bytes_pub.create(condition, size);
@@ -841,7 +850,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
     }
 
     // Check if the condition is an expression
-    if (!sparser_is_expr(copy->cstr(copy)))
+    if (!parser->is_expression(copy->cstr(copy)))
     {
         console->error(console,
                        "condition \'%s\' is not an expression",
@@ -852,7 +861,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
     }
 
     // Check if the expression is valid
-    result = sparser_evaluate(console->error, console, copy->cstr(copy));
+    result = parser->evaluate(console->error, console, copy->cstr(copy));
     if (result == SPARSER_INVALID_EXPRESSION)
     {
         console->error(console,
@@ -864,6 +873,13 @@ static long scallop_evaluate_condition(scallop_t * scallop,
 
     copy->destroy(copy);
     return result;
+}
+
+//------------------------------------------------------------------------|
+static inline scallop_parser_t * scallop_parser(scallop_t * scallop)
+{
+    OBJECT_PRIV(, scallop);
+    return priv->parser;
 }
 
 //------------------------------------------------------------------------|
@@ -1205,6 +1221,7 @@ const scallop_t scallop_pub = {
     &scallop_store_args,
     &scallop_assign_variable,
     &scallop_evaluate_condition,
+    &scallop_parser,
     &scallop_dispatch,
     &scallop_run_console,
     &scallop_run_lines,

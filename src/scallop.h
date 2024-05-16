@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "parser.h"
 #include "console.h"
 #include "command.h"
 #include "routine.h"
@@ -100,6 +101,13 @@ typedef struct scallop_t
     long (*evaluate_condition)(struct scallop_t * scallop,
                                const char * condition,
                                size_t size);
+
+    // Get access to the internal parser object.
+    // FIXME: This may ultimately be a stopgap measure while
+    //  migrating to a unified "evaluate_condition"/expression
+    //  call -- but this will require some refactoring.  consider
+    //  removing this export ASAP.
+    scallop_parser_t * (*parser)(struct scallop_t * scallop);
 
     // Handle a raw line of input, calling whatever
     // handler functions are necessary.
