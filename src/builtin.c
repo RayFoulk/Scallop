@@ -427,7 +427,7 @@ static int builtin_handler_print(void * scmd,
         if (parser->is_expression(args[argnum]))
         {
             result = parser->evaluate(console->error, console, args[argnum]);
-            if (result == SPARSER_INVALID_EXPRESSION)
+            if (result == IPARSER_INVALID_EXPRESSION)
             {
                 console->error(console,
                                "invalid expression \'%\'",
@@ -474,7 +474,7 @@ static int builtin_handler_assign(void * scmd,
     if (parser->is_expression(args[2]))
     {
         result = parser->evaluate(console->error, console, args[2]);
-        if (result == SPARSER_INVALID_EXPRESSION)
+        if (result == IPARSER_INVALID_EXPRESSION)
         {
             console->error(console,
                            "not assigning \'%s\' from invalid expression \'%\'",

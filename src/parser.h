@@ -89,13 +89,13 @@ extern "C" {
 // Limit expression recursion depth to avoid stack smash.  This could
 // occur either due to flaws in the recursive parser itself of absurdly
 // deep parenthetical expressions.
-#define SPARSER_MAX_RECURSION_DEPTH         64
+#define IPARSER_MAX_RECURSION_DEPTH         64
 
 // Reserve a single special return value to indicate the expression is
 // invalid.  All other return values are considered legitimate.  When
 // a parsing error occurs, details will be reported to the print function
 // as passed into the top level evaluator call.
-#define SPARSER_INVALID_EXPRESSION          LONG_MIN
+#define IPARSER_INVALID_EXPRESSION          LONG_MIN
 
 //------------------------------------------------------------------------|
 // Don't create parser as a heap object, but use it as a singleton stack

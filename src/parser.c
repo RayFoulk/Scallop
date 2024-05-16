@@ -99,7 +99,7 @@ long iparser_evaluate(generic_print_f errprintf,
                               sparser.error_ptr - sparser.expr);
         }
 
-        return SPARSER_INVALID_EXPRESSION;
+        return IPARSER_INVALID_EXPRESSION;
     }
 
     return result;
@@ -389,7 +389,7 @@ static long iparser_expression(iparser_data_t * sparser)
     sparser->depth++;
 
     // limit recursion depth
-    if (sparser->depth >= SPARSER_MAX_RECURSION_DEPTH)
+    if (sparser->depth >= IPARSER_MAX_RECURSION_DEPTH)
     {
         if (sparser->errprintf)
         {
@@ -400,7 +400,7 @@ static long iparser_expression(iparser_data_t * sparser)
 
         sparser->depth--;
         sparser->error_ptr = sparser->ptr;
-        return SPARSER_INVALID_EXPRESSION;
+        return IPARSER_INVALID_EXPRESSION;
     }
 
     long left = iparser_extract_term(sparser);
@@ -411,7 +411,7 @@ static long iparser_expression(iparser_data_t * sparser)
     {
         // Return to top level early if an error occurred
         sparser->depth--;
-        return SPARSER_INVALID_EXPRESSION;
+        return IPARSER_INVALID_EXPRESSION;
     }
     else if (*sparser->ptr == ')' && sparser->depth <= 1)
     {
@@ -423,7 +423,7 @@ static long iparser_expression(iparser_data_t * sparser)
         }
 
         sparser->error_ptr = sparser->ptr;
-        return SPARSER_INVALID_EXPRESSION;
+        return IPARSER_INVALID_EXPRESSION;
     }
     else if (!*sparser->ptr)
     {
@@ -486,7 +486,7 @@ static long iparser_extract_factor(iparser_data_t * sparser)
         }
 
         sparser->error_ptr = sparser->ptr;
-        return SPARSER_INVALID_EXPRESSION;
+        return IPARSER_INVALID_EXPRESSION;
     }
     else if (*sparser->ptr == '!')
     {
@@ -518,7 +518,7 @@ static long iparser_extract_factor(iparser_data_t * sparser)
     }
 
     sparser->error_ptr = sparser->ptr;
-    return SPARSER_INVALID_EXPRESSION;
+    return IPARSER_INVALID_EXPRESSION;
 }
 
 //------------------------------------------------------------------------|

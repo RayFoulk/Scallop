@@ -862,7 +862,7 @@ static long scallop_evaluate_condition(scallop_t * scallop,
 
     // Check if the expression is valid
     result = parser->evaluate(console->error, console, copy->cstr(copy));
-    if (result == SPARSER_INVALID_EXPRESSION)
+    if (result == IPARSER_INVALID_EXPRESSION)
     {
         console->error(console,
                        "condition \'%s\' is an invalid expression",

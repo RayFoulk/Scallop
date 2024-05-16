@@ -106,15 +106,15 @@ TEST_BEGIN("whitespace")
 TEST_END
 
 TEST_BEGIN("bad parenthesis")
-    CHECK(evalexpr("(((1 && 1))") == SPARSER_INVALID_EXPRESSION);
-    CHECK(evalexpr("((((1 + 1) + (2 + 2))") == SPARSER_INVALID_EXPRESSION);
-    //CHECK(evalexpr("(((1 || 1)))))") == SPARSER_INVALID_EXPRESSION);
-    CHECK(evalexpr("(1))") == SPARSER_INVALID_EXPRESSION);
+    CHECK(evalexpr("(((1 && 1))") == IPARSER_INVALID_EXPRESSION);
+    CHECK(evalexpr("((((1 + 1) + (2 + 2))") == IPARSER_INVALID_EXPRESSION);
+    //CHECK(evalexpr("(((1 || 1)))))") == IPARSER_INVALID_EXPRESSION);
+    CHECK(evalexpr("(1))") == IPARSER_INVALID_EXPRESSION);
 TEST_END
 
 TEST_BEGIN("bad characters")
-    CHECK(evalexpr("(^%# == !@#%)") == SPARSER_INVALID_EXPRESSION);
-    CHECK(evalexpr("((9 == 9.0) && (1))") == SPARSER_INVALID_EXPRESSION);
+    CHECK(evalexpr("(^%# == !@#%)") == IPARSER_INVALID_EXPRESSION);
+    CHECK(evalexpr("((9 == 9.0) && (1))") == IPARSER_INVALID_EXPRESSION);
 
     // TODO: This is allowed because the lack of outer parenthesis
     // and evaluation stops when '.' is detected as not-a-digit.
