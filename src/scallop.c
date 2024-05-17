@@ -31,6 +31,7 @@
 // RayCO
 #include "utils.h"              // memzero(), function signatures
 #include "blammo.h"
+#include "iparser.h"
 #include "console.h"
 #include "collect.h"
 #include "chain.h"
@@ -41,7 +42,7 @@
 #include "command.h"
 #include "builtin.h"
 #include "routine.h"
-#include "iparser.h"
+#include "plugin.h"
 
 //------------------------------------------------------------------------|
 // Various constants that define the syntax/dialect/behavior of scallop's
@@ -119,6 +120,9 @@ typedef struct
 
     // The list of all defined routines
     chain_t * routines;
+
+    // The list of all loaded (added) plugins
+    chain_t * plugins;
 
     // Pointer to the console object for user I/O
     console_t * console;
@@ -536,6 +540,16 @@ static scallop_t * scallop_create(console_t * console,
         return NULL;
     }
 
+    // Create the list of plugins
+    priv->plugins = chain_pub.create(NULL,
+                                     scallop_plugin_pub.destroy);
+    if (!priv->plugins)
+    {
+        BLAMMO(FATAL, "chain_pub.create() failed");
+        scallop->destroy(scallop);
+        return NULL;
+    }
+
     return scallop;
 }
 
@@ -543,6 +557,12 @@ static scallop_t * scallop_create(console_t * console,
 static void scallop_destroy(void * scallop_ptr)
 {
     OBJECT_PTR(, scallop, scallop_ptr, );
+
+    // Destroy all plugins
+    if (priv->plugins)
+    {
+        priv->plugins->destroy(priv->plugins);
+    }
 
     // Destroy all routines
     if (priv->routines)
@@ -1029,6 +1049,10 @@ static void scallop_dispatch(scallop_t * scallop, const char * line)
         // ALSO: DO NOT EVER substitute for constructs.  This would
         // cause breakage when executing (ex:) while loops inside routine
         // because the expression gets prematurely evaluated.
+        // FIXME: All of the above may no longer be true, and also
+        //  the complexity of the logic here suggests this is too early
+        //  but then removing it will break things like arg substitution
+        //  to routine calls.  This is an experiment for later.
         if (!call_linefunc && !command->is_construct(command) &&
                 !scallop_substitute_variables(scallop, linebytes))
         {
