@@ -50,12 +50,16 @@ typedef struct
 
     // TODO: handle, function pointers for add/remove.
 
+    // Function pointers for adding and removing this plugin
+    scallop_registration_f add;
+    scallop_registration_f remove;
 }
 scallop_plugin_priv_t;
 
 //------------------------------------------------------------------------|
 static scallop_plugin_t * scallop_plugin_create(const char * name,
-                                                bool dynamic)
+                                                scallop_registration_f add,
+                                                scallop_registration_f remove)
 {
     OBJECT_ALLOC(scallop_, plugin);
 
@@ -67,13 +71,23 @@ static scallop_plugin_t * scallop_plugin_create(const char * name,
         return NULL;
     }
 
-    priv->dynamic = dynamic;
+
+    // Caller-provided add function indicates the plugin is static
+    priv->dynamic = (bool) !add;
 
     // TODO: If dynamic, construct file name and try to locate
     // recursively within working directory, or given a working
     // directory (as an option from scallop parent.
     // e.g. given "butter" find within $cwd "libbutter.so"
     // if not found then report error and return NULL.
+
+    // GOOD PLACE TO START: Add ability to set working dir
+    // from command line options (also command??) and track
+    // and save that and pass it into scallop as a private.
+    // ALSO: need a 'finder' utility -- options might include
+    //  find dir versus file (type) and find-first versus
+    //  find-all (return list).  The latter seems maybe more
+    //  complicated than scope requires.
 
     return plugin;
 }

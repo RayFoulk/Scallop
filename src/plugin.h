@@ -37,7 +37,9 @@
 typedef struct scallop_plugin_t
 {
     // Plugin factory function
-    struct scallop_plugin_t * (*create)(const char * name, bool dynamic);
+    struct scallop_plugin_t * (*create)(const char * name,
+                                        scallop_registration_f add,
+                                        scallop_registration_f remove);
 
     // Plugin destructor function
     void (*destroy)(void * plugin);

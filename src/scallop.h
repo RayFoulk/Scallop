@@ -70,6 +70,7 @@ typedef struct scallop_t
     // This is necessary for third-party command registration!
     scallop_cmd_t * (*commands)(struct scallop_t * scallop);
 
+    // TODO: BEGIN: MOVE THESE INTO BUTTER PLUGIN
     // Get a routine by name.  Returns NULL if the routine is not found.
     scallop_rtn_t * (*routine_by_name)(struct scallop_t * scallop,
                                        const char * name);
@@ -81,6 +82,17 @@ typedef struct scallop_t
     // Remove routine from the internal list
     void (*routine_remove)(struct scallop_t * scallop,
                            const char * name);
+    // TODO: END: MOVE THESE INTO BUTTER PLUGIN
+
+    // Add a dynamic or static plugin to Scallop
+    bool (*plugin_add)(struct scallop_t * scallop,
+                       const char * name,
+                       scallop_registration_f addfunc,
+                       scallop_registration_f rmfunc);
+
+    // Remove the plugin from Scallop
+    bool (*plugin_remove)(struct scallop_t * scallop,
+                          const char * name);
 
     // Put a set of routine arguments into the environment to be
     // picked up later on evaluation/substitution.  This will

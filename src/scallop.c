@@ -522,6 +522,7 @@ static scallop_t * scallop_create(console_t * console,
         return NULL;
     }
 
+    // TODO: REMOVE THIS ONCE STATIC PLUGIN ADD IS IMPLEMENTED
     // Register all initial commands if given a callback on create
     if (registration && !registration(scallop))
     {
@@ -530,6 +531,7 @@ static scallop_t * scallop_create(console_t * console,
         return NULL;
     }
 
+    // TODO: MOVE THIS INTO BUTTER PLUGIN ONCE DYNAMIC PLUGINS IMPLEMENTED
     // Create the list of routines.  Routines are not copied (for now)
     priv->routines = chain_pub.create(NULL,
                                       scallop_rtn_pub.destroy);
@@ -673,6 +675,62 @@ static void scallop_routine_remove(scallop_t * scallop,
     // be left on the link to remove after the find, but another thread
     // could conceivably perform an 'insert' in between calls.
     priv->routines->remove(priv->routines);
+}
+
+//------------------------------------------------------------------------|
+static bool scallop_plugin_add(scallop_t * scallop,
+                               const char * name,
+                               scallop_registration_f addfunc,
+                               scallop_registration_f rmfunc)
+{
+    OBJECT_PRIV(, scallop);
+
+    // If dynamic, this will attempt to locate the .so
+    // and to identify the necessary symbols within it.
+    // If static, it should just cache the fptrs for later.
+    scallop_plugin_t * plugin = scallop_plugin_pub.create(name,
+                                                          addfunc,
+                                                          rmfunc);
+    if (!plugin)
+    {
+        priv->console->error(priv->console,
+                             "failed to create plugin: %s",
+                             name);
+       return false;
+    }
+
+    // This should cause the plugin to register all of its
+    // commands and functionality with Scallop, and initialize
+    // its internal data and state.
+    if (!plugin->add(plugin, scallop))
+    {
+        priv->console->error(priv->console,
+                             "failed to add plugin: %s",
+                             name);
+        plugin->destroy(plugin);
+        return false;
+    }
+
+    // Since everything is hunky-dory, add it to the list
+    // of loaded plugins.
+    priv->plugins->insert(priv->plugins, plugin);
+    return true;
+}
+
+//------------------------------------------------------------------------|
+static bool scallop_plugin_remove(scallop_t * scallop,
+                                  const char * name)
+{
+    OBJECT_PRIV(, scallop);
+
+    BLAMMO(WARNING, "NOT IMPLEMENTED");
+
+    // TODO: CONSIDER COLLECTION INSTEAD OF CHAIN
+    // SINCE IT SUPPORTS FIND BY KEY (NAME)
+    // OR ELSE ADD A NAME COMPARE FUNCTION TO PLUGIN API
+    // SAME AS RTN FIND BY NAME
+
+    return true;
 }
 
 //------------------------------------------------------------------------|
@@ -1242,6 +1300,8 @@ const scallop_t scallop_pub = {
     &scallop_routine_by_name,
     &scallop_routine_insert,
     &scallop_routine_remove,
+    &scallop_plugin_add,
+    &scallop_plugin_remove,
     &scallop_store_args,
     &scallop_assign_variable,
     &scallop_evaluate_condition,
